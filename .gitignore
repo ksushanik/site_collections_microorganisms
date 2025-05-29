@@ -74,3 +74,158 @@ pids
 #claude.code specific
 .claude/
 CLAUDE.md
+
+# Файлы и папки Memory Bank System (не для индексации)
+memory-bank/
+memory_bank_upgrade_guide.md
+MEMORY_BANK_OPTIMIZATIONS.md
+README.md
+RELEASE_NOTES.md
+.cursor/
+assets/
+prompts/
+
+# Django
+*.log
+*.pot
+*.pyc
+__pycache__/
+local_settings.py
+db.sqlite3
+db.sqlite3-journal
+
+# Если используется SQLite
+*.db
+
+# Django stuff:
+media/
+staticfiles/
+
+# Секретные файлы
+.env
+.env.local
+.env.production
+.env.staging
+
+# Python
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# PyInstaller
+*.manifest
+*.spec
+
+# Installer logs
+pip-log.txt
+pip-delete-this-directory.txt
+
+# Unit test / coverage reports
+htmlcov/
+.tox/
+.nox/
+.coverage
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+*.py,cover
+.hypothesis/
+.pytest_cache/
+cover/
+
+# Translations
+*.mo
+
+# Jupyter Notebook
+.ipynb_checkpoints
+
+# IPython
+profile_default/
+ipython_config.py
+
+# Environments
+.env
+.venv
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# macOS
+.DS_Store
+
+# Windows
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+
+# Logs
+logs/
+*.log
+
+# Node.js (если будет фронтенд)
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Temporary files
+tmp/
+temp/
+
+# Backup files
+*.bak
+*.backup
+
+# СИФИБР специфичные файлы
+uploads/
+collections_data/
+blast_results/
+
+# Elasticsearch
+elasticsearch_data/
+
+# Redis
+dump.rdb
+
+# Docker
+.dockerignore
+
+# Celery
+celerybeat-schedule
+celerybeat.pid
+
+# Documentation builds
+docs/_build/
+docs/site/
+
+# Профайлинг
+.prof
