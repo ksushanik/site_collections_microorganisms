@@ -1,3 +1,597 @@
-from django.shortcuts import render
+from django.shortcuts import render, get_object_or_404
+from django.views.generic import ListView, DetailView, TemplateView
+from django.db.models import Q, Count, Avg
+from django.http import JsonResponse, HttpResponse
+from django.core.paginator import Paginator
+from rest_framework import viewsets, generics, status
+from rest_framework.decorators import action
+from rest_framework.response import Response
+from django_filters.rest_framework import DjangoFilterBackend
+from rest_framework.filters import SearchFilter, OrderingFilter
+import csv
+import json
 
-# Create your views here.
+from .models import Collection, Strain, GenomeSequence, Publication
+from .serializers import (
+    CollectionSerializer, StrainSerializer, 
+    GenomeSequenceSerializer, PublicationSerializer,
+    StrainSearchSerializer
+)
+from .filters import StrainFilter
+
+
+# Веб-интерфейс представления
+class CatalogHomeView(TemplateView):
+    """Главная страница каталога"""
+    template_name = 'catalog/home.html'
+    
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        
+        # Общая статистика
+        context.update({
+            'total_collections': Collection.objects.filter(is_active=True).count(),
+            'total_strains': Strain.objects.filter(is_available=True).count(),
+            'total_extremophiles': Strain.objects.filter(
+                Q(is_psychrophile=True) | Q(is_thermophile=True) | 
+                Q(is_halophile=True) | Q(is_acidophile=True) | 
+                Q(is_alkaliphile=True) | Q(is_barophile=True)
+            ).count(),
+            'baikal_strains': Strain.objects.filter(
+                habitat_type__in=[
+                    'baikal_surface', 'baikal_deep', 
+                    'baikal_bottom', 'baikal_coastal'
+                ]
+            ).count(),
+            'recent_strains': Strain.objects.filter(
+                is_available=True
+            ).order_by('-created_at')[:5],
+            'featured_collections': Collection.objects.filter(
+                is_active=True
+            ).annotate(
+                strain_count=Count('strains')
+            ).order_by('-strain_count')[:6],
+        })
+        
+        return context
+
+
+class CollectionListView(ListView):
+    """Список коллекций"""
+    model = Collection
+    template_name = 'catalog/collection_list.html'
+    context_object_name = 'collections'
+    paginate_by = 20
+    
+    def get_queryset(self):
+        queryset = Collection.objects.filter(is_active=True).annotate(
+            strain_count=Count('strains')
+        ).order_by('name')
+        
+        # Фильтрация по типу коллекции
+        collection_type = self.request.GET.get('type')
+        if collection_type:
+            queryset = queryset.filter(collection_type=collection_type)
+            
+        return queryset
+    
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['collection_types'] = Collection.COLLECTION_TYPES
+        context['selected_type'] = self.request.GET.get('type', '')
+        return context
+
+
+class CollectionDetailView(DetailView):
+    """Детальная страница коллекции"""
+    model = Collection
+    template_name = 'catalog/collection_detail.html'
+    context_object_name = 'collection'
+    
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        collection = self.object
+        
+        # Статистика по штаммам в коллекции
+        strains = collection.strains.filter(is_available=True)
+        
+        context.update({
+            'strains': strains.order_by('strain_number')[:10],
+            'total_strains': strains.count(),
+            'extremophile_count': strains.filter(
+                Q(is_psychrophile=True) | Q(is_thermophile=True) | 
+                Q(is_halophile=True) | Q(is_acidophile=True) | 
+                Q(is_alkaliphile=True) | Q(is_barophile=True)
+            ).count(),
+            'genome_count': strains.filter(has_genome_sequence=True).count(),
+            'biotech_count': strains.filter(
+                Q(produces_antibiotics=True) | Q(produces_enzymes=True) | 
+                Q(produces_metabolites=True) | Q(nitrogen_fixation=True)
+            ).count(),
+        })
+        
+        return context
+
+
+class StrainListView(ListView):
+    """Список штаммов с фильтрацией"""
+    model = Strain
+    template_name = 'catalog/strain_list.html'
+    context_object_name = 'strains'
+    paginate_by = 25
+    
+    def get_queryset(self):
+        queryset = Strain.objects.filter(
+            is_available=True
+        ).select_related(
+            'collection'
+        ).prefetch_related(
+            'genome_sequences'
+        ).order_by('collection__code', 'strain_number')
+        
+        # Фильтры
+        collection_id = self.request.GET.get('collection')
+        if collection_id:
+            queryset = queryset.filter(collection_id=collection_id)
+        
+        organism_type = self.request.GET.get('organism_type')
+        if organism_type:
+            queryset = queryset.filter(organism_type=organism_type)
+        
+        habitat_type = self.request.GET.get('habitat_type')
+        if habitat_type:
+            queryset = queryset.filter(habitat_type=habitat_type)
+        
+        # Поиск
+        search = self.request.GET.get('search')
+        if search:
+            queryset = queryset.filter(
+                Q(scientific_name__icontains=search) |
+                Q(genus__icontains=search) |
+                Q(species__icontains=search) |
+                Q(strain_number__icontains=search) |
+                Q(isolation_source__icontains=search)
+            )
+        
+        # Специальные фильтры
+        if self.request.GET.get('extremophiles'):
+            queryset = queryset.filter(
+                Q(is_psychrophile=True) | Q(is_thermophile=True) | 
+                Q(is_halophile=True) | Q(is_acidophile=True) | 
+                Q(is_alkaliphile=True) | Q(is_barophile=True)
+            )
+        
+        if self.request.GET.get('baikal'):
+            queryset = queryset.filter(
+                habitat_type__in=[
+                    'baikal_surface', 'baikal_deep', 
+                    'baikal_bottom', 'baikal_coastal'
+                ]
+            )
+        
+        if self.request.GET.get('biotech'):
+            queryset = queryset.filter(
+                Q(produces_antibiotics=True) | Q(produces_enzymes=True) | 
+                Q(produces_metabolites=True) | Q(nitrogen_fixation=True)
+            )
+        
+        return queryset
+    
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context.update({
+            'collections': Collection.objects.filter(is_active=True),
+            'organism_types': Strain.ORGANISM_TYPES,
+            'habitat_types': Strain.HABITAT_TYPES,
+            'filters': {
+                'collection': self.request.GET.get('collection', ''),
+                'organism_type': self.request.GET.get('organism_type', ''),
+                'habitat_type': self.request.GET.get('habitat_type', ''),
+                'search': self.request.GET.get('search', ''),
+                'extremophiles': self.request.GET.get('extremophiles'),
+                'baikal': self.request.GET.get('baikal'),
+                'biotech': self.request.GET.get('biotech'),
+            }
+        })
+        return context
+
+
+class StrainDetailView(DetailView):
+    """Детальная страница штамма"""
+    model = Strain
+    template_name = 'catalog/strain_detail.html'
+    context_object_name = 'strain'
+    
+    def get_queryset(self):
+        return Strain.objects.select_related(
+            'collection'
+        ).prefetch_related(
+            'genome_sequences',
+            'publications'
+        )
+    
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        strain = self.object
+        
+        context.update({
+            'genome_sequences': strain.genome_sequences.all(),
+            'publications': strain.publications.all(),
+            'extremophile_types': strain.extremophile_types,
+            'related_strains': Strain.objects.filter(
+                genus=strain.genus,
+                is_available=True
+            ).exclude(id=strain.id)[:5],
+        })
+        
+        return context
+
+
+class StrainSearchView(TemplateView):
+    """Расширенный поиск штаммов"""
+    template_name = 'catalog/strain_search.html'
+    
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context.update({
+            'collections': Collection.objects.filter(is_active=True),
+            'organism_types': Strain.ORGANISM_TYPES,
+            'habitat_types': Strain.HABITAT_TYPES,
+        })
+        return context
+
+
+class BaikalExtremophilesView(ListView):
+    """Специальная страница байкальских экстремофилов"""
+    model = Strain
+    template_name = 'catalog/baikal_extremophiles.html'
+    context_object_name = 'strains'
+    paginate_by = 20
+    
+    def get_queryset(self):
+        return Strain.objects.filter(
+            habitat_type__in=[
+                'baikal_surface', 'baikal_deep', 
+                'baikal_bottom', 'baikal_coastal'
+            ],
+            is_available=True
+        ).filter(
+            Q(is_psychrophile=True) | Q(is_thermophile=True) | 
+            Q(is_halophile=True) | Q(is_acidophile=True) | 
+            Q(is_alkaliphile=True) | Q(is_barophile=True)
+        ).select_related('collection').order_by('-depth_meters', 'strain_number')
+
+
+class BiotechnologyView(ListView):
+    """Страница штаммов с биотехнологическим потенциалом"""
+    model = Strain
+    template_name = 'catalog/biotechnology.html'
+    context_object_name = 'strains'
+    paginate_by = 20
+    
+    def get_queryset(self):
+        return Strain.objects.filter(
+            Q(produces_antibiotics=True) | Q(produces_enzymes=True) | 
+            Q(produces_metabolites=True) | Q(nitrogen_fixation=True),
+            is_available=True
+        ).select_related('collection').order_by('scientific_name')
+
+
+class StatisticsView(TemplateView):
+    """Страница статистики"""
+    template_name = 'catalog/statistics.html'
+    
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        
+        # Общая статистика
+        total_strains = Strain.objects.filter(is_available=True)
+        
+        context.update({
+            'total_collections': Collection.objects.filter(is_active=True).count(),
+            'total_strains': total_strains.count(),
+            
+            # По типам организмов
+            'organism_stats': [
+                {
+                    'type': display_name,
+                    'count': total_strains.filter(organism_type=code).count()
+                }
+                for code, display_name in Strain.ORGANISM_TYPES
+            ],
+            
+            # По средам обитания
+            'habitat_stats': [
+                {
+                    'type': display_name,
+                    'count': total_strains.filter(habitat_type=code).count()
+                }
+                for code, display_name in Strain.HABITAT_TYPES
+            ],
+            
+            # Экстремофилы
+            'extremophile_stats': {
+                'psychrophiles': total_strains.filter(is_psychrophile=True).count(),
+                'thermophiles': total_strains.filter(is_thermophile=True).count(),
+                'halophiles': total_strains.filter(is_halophile=True).count(),
+                'acidophiles': total_strains.filter(is_acidophile=True).count(),
+                'alkaliphiles': total_strains.filter(is_alkaliphile=True).count(),
+                'barophiles': total_strains.filter(is_barophile=True).count(),
+            },
+            
+            # Биотехнология
+            'biotech_stats': {
+                'antibiotics': total_strains.filter(produces_antibiotics=True).count(),
+                'enzymes': total_strains.filter(produces_enzymes=True).count(),
+                'metabolites': total_strains.filter(produces_metabolites=True).count(),
+                'nitrogen_fixation': total_strains.filter(nitrogen_fixation=True).count(),
+            },
+            
+            # Геномика
+            'genome_stats': {
+                'sequenced': total_strains.filter(has_genome_sequence=True).count(),
+                'avg_genome_size': total_strains.exclude(
+                    genome_size__isnull=True
+                ).aggregate(Avg('genome_size'))['genome_size__avg'],
+                'avg_gc_content': total_strains.exclude(
+                    gc_content__isnull=True
+                ).aggregate(Avg('gc_content'))['gc_content__avg'],
+            },
+        })
+        
+        return context
+
+
+# API представления
+class CollectionViewSet(viewsets.ReadOnlyModelViewSet):
+    """API для коллекций"""
+    queryset = Collection.objects.filter(is_active=True)
+    serializer_class = CollectionSerializer
+    filter_backends = [DjangoFilterBackend, SearchFilter, OrderingFilter]
+    search_fields = ['name', 'code', 'description']
+    filterset_fields = ['collection_type', 'access_level']
+    ordering_fields = ['name', 'code', 'established_date']
+    ordering = ['name']
+    
+    @action(detail=True, methods=['get'])
+    def strains(self, request, pk=None):
+        """Получить штаммы конкретной коллекции"""
+        collection = self.get_object()
+        strains = collection.strains.filter(is_available=True)
+        
+        page = self.paginate_queryset(strains)
+        if page is not None:
+            serializer = StrainSerializer(page, many=True, context={'request': request})
+            return self.get_paginated_response(serializer.data)
+        
+        serializer = StrainSerializer(strains, many=True, context={'request': request})
+        return Response(serializer.data)
+
+
+class StrainViewSet(viewsets.ReadOnlyModelViewSet):
+    """API для штаммов"""
+    queryset = Strain.objects.filter(is_available=True).select_related('collection')
+    serializer_class = StrainSerializer
+    filter_backends = [DjangoFilterBackend, SearchFilter, OrderingFilter]
+    filterset_class = StrainFilter
+    search_fields = [
+        'scientific_name', 'genus', 'species', 'strain_number',
+        'isolation_source', 'geographic_location'
+    ]
+    ordering_fields = [
+        'scientific_name', 'genus', 'species', 'strain_number',
+        'isolation_date', 'deposit_date'
+    ]
+    ordering = ['collection__code', 'strain_number']
+    
+    @action(detail=False, methods=['get'])
+    def extremophiles(self, request):
+        """Получить все экстремофильные штаммы"""
+        queryset = self.filter_queryset(
+            self.get_queryset().filter(
+                Q(is_psychrophile=True) | Q(is_thermophile=True) | 
+                Q(is_halophile=True) | Q(is_acidophile=True) | 
+                Q(is_alkaliphile=True) | Q(is_barophile=True)
+            )
+        )
+        
+        page = self.paginate_queryset(queryset)
+        if page is not None:
+            serializer = self.get_serializer(page, many=True)
+            return self.get_paginated_response(serializer.data)
+        
+        serializer = self.get_serializer(queryset, many=True)
+        return Response(serializer.data)
+    
+    @action(detail=False, methods=['get'])
+    def baikal(self, request):
+        """Получить байкальские штаммы"""
+        queryset = self.filter_queryset(
+            self.get_queryset().filter(
+                habitat_type__in=[
+                    'baikal_surface', 'baikal_deep', 
+                    'baikal_bottom', 'baikal_coastal'
+                ]
+            )
+        )
+        
+        page = self.paginate_queryset(queryset)
+        if page is not None:
+            serializer = self.get_serializer(page, many=True)
+            return self.get_paginated_response(serializer.data)
+        
+        serializer = self.get_serializer(queryset, many=True)
+        return Response(serializer.data)
+
+
+class GenomeSequenceViewSet(viewsets.ReadOnlyModelViewSet):
+    """API для геномных последовательностей"""
+    queryset = GenomeSequence.objects.all().select_related('strain')
+    serializer_class = GenomeSequenceSerializer
+    filter_backends = [DjangoFilterBackend, SearchFilter, OrderingFilter]
+    filterset_fields = ['sequence_type', 'database', 'strain__collection']
+    search_fields = ['accession_number', 'strain__scientific_name']
+    ordering_fields = ['submission_date', 'sequence_length']
+    ordering = ['-submission_date']
+
+
+class PublicationViewSet(viewsets.ReadOnlyModelViewSet):
+    """API для публикаций"""
+    queryset = Publication.objects.all().prefetch_related('strains')
+    serializer_class = PublicationSerializer
+    filter_backends = [DjangoFilterBackend, SearchFilter, OrderingFilter]
+    filterset_fields = ['year', 'journal']
+    search_fields = ['title', 'authors', 'abstract', 'doi']
+    ordering_fields = ['year', 'title']
+    ordering = ['-year', 'title']
+
+
+class AdvancedSearchAPIView(generics.ListAPIView):
+    """API для расширенного поиска"""
+    serializer_class = StrainSearchSerializer
+    filter_backends = [DjangoFilterBackend]
+    filterset_class = StrainFilter
+    
+    def get_queryset(self):
+        queryset = Strain.objects.filter(is_available=True).select_related('collection')
+        
+        # Дополнительные фильтры для расширенного поиска
+        params = self.request.query_params
+        
+        # Температурный диапазон
+        min_temp = params.get('min_temperature')
+        max_temp = params.get('max_temperature')
+        if min_temp:
+            queryset = queryset.filter(temperature_range_min__gte=min_temp)
+        if max_temp:
+            queryset = queryset.filter(temperature_range_max__lte=max_temp)
+        
+        # pH диапазон
+        min_ph = params.get('min_ph')
+        max_ph = params.get('max_ph')
+        if min_ph:
+            queryset = queryset.filter(ph_range_min__gte=min_ph)
+        if max_ph:
+            queryset = queryset.filter(ph_range_max__lte=max_ph)
+        
+        # Глубина
+        max_depth = params.get('max_depth')
+        if max_depth:
+            queryset = queryset.filter(depth_meters__lte=max_depth)
+        
+        return queryset
+
+
+class StatisticsAPIView(generics.GenericAPIView):
+    """API для статистики"""
+    
+    def get(self, request):
+        total_strains = Strain.objects.filter(is_available=True)
+        
+        stats = {
+            'total_collections': Collection.objects.filter(is_active=True).count(),
+            'total_strains': total_strains.count(),
+            'total_extremophiles': total_strains.filter(
+                Q(is_psychrophile=True) | Q(is_thermophile=True) | 
+                Q(is_halophile=True) | Q(is_acidophile=True) | 
+                Q(is_alkaliphile=True) | Q(is_barophile=True)
+            ).count(),
+            'baikal_strains': total_strains.filter(
+                habitat_type__in=[
+                    'baikal_surface', 'baikal_deep', 
+                    'baikal_bottom', 'baikal_coastal'
+                ]
+            ).count(),
+            'genome_sequenced': total_strains.filter(has_genome_sequence=True).count(),
+            'biotech_potential': total_strains.filter(
+                Q(produces_antibiotics=True) | Q(produces_enzymes=True) | 
+                Q(produces_metabolites=True) | Q(nitrogen_fixation=True)
+            ).count(),
+        }
+        
+        return Response(stats)
+
+
+class ExportAPIView(generics.GenericAPIView):
+    """API для экспорта данных"""
+    
+    def get(self, request, format):
+        if format not in ['csv', 'json']:
+            return Response(
+                {'error': 'Поддерживаются только форматы: csv, json'}, 
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        # Применяем фильтры
+        queryset = Strain.objects.filter(is_available=True).select_related('collection')
+        
+        # Можно добавить фильтрацию по параметрам запроса
+        collection_id = request.query_params.get('collection')
+        if collection_id:
+            queryset = queryset.filter(collection_id=collection_id)
+        
+        if format == 'csv':
+            response = HttpResponse(content_type='text/csv')
+            response['Content-Disposition'] = 'attachment; filename="strains.csv"'
+            
+            writer = csv.writer(response)
+            writer.writerow([
+                'Collection', 'Strain Number', 'Scientific Name', 
+                'Organism Type', 'Habitat Type', 'Isolation Source',
+                'Geographic Location', 'Latitude', 'Longitude',
+                'Is Psychrophile', 'Is Thermophile', 'Is Halophile',
+                'Produces Antibiotics', 'Produces Enzymes'
+            ])
+            
+            for strain in queryset:
+                writer.writerow([
+                    strain.collection.code,
+                    strain.strain_number,
+                    strain.scientific_name,
+                    strain.get_organism_type_display(),
+                    strain.get_habitat_type_display(),
+                    strain.isolation_source,
+                    strain.geographic_location,
+                    strain.latitude,
+                    strain.longitude,
+                    strain.is_psychrophile,
+                    strain.is_thermophile,
+                    strain.is_halophile,
+                    strain.produces_antibiotics,
+                    strain.produces_enzymes,
+                ])
+            
+            return response
+        
+        elif format == 'json':
+            data = []
+            for strain in queryset:
+                data.append({
+                    'collection': strain.collection.code,
+                    'strain_number': strain.strain_number,
+                    'scientific_name': strain.scientific_name,
+                    'organism_type': strain.organism_type,
+                    'habitat_type': strain.habitat_type,
+                    'isolation_source': strain.isolation_source,
+                    'geographic_location': strain.geographic_location,
+                    'coordinates': {
+                        'latitude': float(strain.latitude) if strain.latitude else None,
+                        'longitude': float(strain.longitude) if strain.longitude else None,
+                    },
+                    'extremophile_properties': {
+                        'is_psychrophile': strain.is_psychrophile,
+                        'is_thermophile': strain.is_thermophile,
+                        'is_halophile': strain.is_halophile,
+                        'is_acidophile': strain.is_acidophile,
+                        'is_alkaliphile': strain.is_alkaliphile,
+                        'is_barophile': strain.is_barophile,
+                    },
+                    'biotechnology': {
+                        'produces_antibiotics': strain.produces_antibiotics,
+                        'produces_enzymes': strain.produces_enzymes,
+                        'produces_metabolites': strain.produces_metabolites,
+                        'nitrogen_fixation': strain.nitrogen_fixation,
+                    }
+                })
+            
+            return JsonResponse(data, safe=False)

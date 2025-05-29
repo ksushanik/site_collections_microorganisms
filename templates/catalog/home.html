@@ -1,0 +1,216 @@
+{% extends "base.html" %}
+
+{% block title %}Главная - СИФИБР СО РАН - Коллекции микроорганизмов{% endblock %}
+
+{% block content %}
+<div class="container">
+    <!-- Hero Section -->
+    <div class="row mb-5">
+        <div class="col-12">
+            <div class="jumbotron bg-gradient text-white rounded-3 p-5" style="background: linear-gradient(135deg, #0d6efd 0%, #6f42c1 100%);">
+                <div class="container-fluid py-4">
+                    <h1 class="display-4 fw-bold">🧬 Коллекции микроорганизмов СИФИБР СО РАН</h1>
+                    <p class="lead">
+                        Сибирский институт физиологии и биохимии растений СО РАН<br>
+                        <strong>17 коллекций</strong> уникальных микроорганизмов Байкальского региона
+                    </p>
+                    <div class="row text-center mt-4">
+                        <div class="col-md-3">
+                            <h3 class="display-6">{{ total_collections }}</h3>
+                            <p>Активных коллекций</p>
+                        </div>
+                        <div class="col-md-3">
+                            <h3 class="display-6">{{ total_strains }}</h3>
+                            <p>Штаммов микроорганизмов</p>
+                        </div>
+                        <div class="col-md-3">
+                            <h3 class="display-6">{{ total_extremophiles }}</h3>
+                            <p>Экстремофильных организмов</p>
+                        </div>
+                        <div class="col-md-3">
+                            <h3 class="display-6">{{ baikal_strains }}</h3>
+                            <p>Байкальских эндемиков</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Featured Collections -->
+    <div class="row mb-5">
+        <div class="col-12">
+            <h2 class="mb-4">
+                <i class="bi bi-collection text-primary"></i>
+                Основные коллекции
+            </h2>
+            <div class="row">
+                {% for collection in featured_collections %}
+                <div class="col-lg-4 col-md-6 mb-4">
+                    <div class="card h-100 shadow-sm">
+                        <div class="card-body">
+                            <h5 class="card-title">
+                                <span class="badge bg-secondary me-2">{{ collection.code }}</span>
+                                {{ collection.name }}
+                            </h5>
+                            <p class="card-text text-muted">{{ collection.description|truncatewords:15 }}</p>
+                            <div class="d-flex justify-content-between align-items-center">
+                                <small class="text-muted">
+                                    <i class="bi bi-bacteria"></i>
+                                    {{ collection.strain_count }} штаммов
+                                </small>
+                                <span class="badge bg-primary">{{ collection.get_collection_type_display }}</span>
+                            </div>
+                        </div>
+                        <div class="card-footer bg-transparent">
+                            <a href="{% url 'catalog:collection_detail' collection.pk %}" class="btn btn-outline-primary btn-sm">
+                                <i class="bi bi-eye"></i> Подробнее
+                            </a>
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+            <div class="text-center mt-3">
+                <a href="{% url 'catalog:collection_list' %}" class="btn btn-primary">
+                    <i class="bi bi-collection"></i> Все коллекции
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <!-- Recent Strains -->
+    <div class="row mb-5">
+        <div class="col-12">
+            <h2 class="mb-4">
+                <i class="bi bi-clock text-success"></i>
+                Недавно добавленные штаммы
+            </h2>
+            <div class="table-responsive">
+                <table class="table table-hover">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Штамм</th>
+                            <th>Научное название</th>
+                            <th>Коллекция</th>
+                            <th>Среда обитания</th>
+                            <th>Особенности</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for strain in recent_strains %}
+                        <tr>
+                            <td>
+                                <a href="{% url 'catalog:strain_detail' strain.pk %}" class="text-decoration-none">
+                                    <strong>{{ strain.full_name }}</strong>
+                                </a>
+                            </td>
+                            <td>
+                                <em>{{ strain.scientific_name }}</em>
+                            </td>
+                            <td>
+                                <span class="badge bg-secondary">{{ strain.collection.code }}</span>
+                            </td>
+                            <td>{{ strain.get_habitat_type_display }}</td>
+                            <td>
+                                {% if strain.is_psychrophile %}❄️{% endif %}
+                                {% if strain.is_thermophile %}🔥{% endif %}
+                                {% if strain.is_halophile %}🧂{% endif %}
+                                {% if strain.produces_antibiotics %}💊{% endif %}
+                                {% if strain.produces_enzymes %}⚗️{% endif %}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            <div class="text-center mt-3">
+                <a href="{% url 'catalog:strain_list' %}" class="btn btn-success">
+                    <i class="bi bi-bacteria"></i> Все штаммы
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <!-- Quick Actions -->
+    <div class="row mb-5">
+        <div class="col-12">
+            <h2 class="mb-4">
+                <i class="bi bi-lightning text-warning"></i>
+                Быстрые действия
+            </h2>
+            <div class="row">
+                <div class="col-lg-3 col-md-6 mb-3">
+                    <a href="{% url 'catalog:strain_search' %}" class="btn btn-outline-primary btn-lg w-100">
+                        <i class="bi bi-search d-block fs-1"></i>
+                        Расширенный поиск
+                    </a>
+                </div>
+                <div class="col-lg-3 col-md-6 mb-3">
+                    <a href="{% url 'catalog:baikal_extremophiles' %}" class="btn btn-outline-info btn-lg w-100">
+                        <i class="bi bi-snow d-block fs-1"></i>
+                        Байкальские экстремофилы
+                    </a>
+                </div>
+                <div class="col-lg-3 col-md-6 mb-3">
+                    <a href="{% url 'catalog:biotechnology' %}" class="btn btn-outline-success btn-lg w-100">
+                        <i class="bi bi-gear d-block fs-1"></i>
+                        Биотехнологии
+                    </a>
+                </div>
+                <div class="col-lg-3 col-md-6 mb-3">
+                    <a href="{% url 'catalog:statistics' %}" class="btn btn-outline-warning btn-lg w-100">
+                        <i class="bi bi-graph-up d-block fs-1"></i>
+                        Статистика
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- About Section -->
+    <div class="row">
+        <div class="col-12">
+            <div class="card border-0 bg-light">
+                <div class="card-body p-5">
+                    <h2 class="mb-4">
+                        <i class="bi bi-info-circle text-info"></i>
+                        О коллекциях СИФИБР
+                    </h2>
+                    <div class="row">
+                        <div class="col-md-6">
+                            <p class="lead">
+                                Сибирский институт физиологии и биохимии растений СО РАН поддерживает 
+                                уникальные коллекции микроорганизмов, специализирующиеся на изучении 
+                                экстремофильных организмов Байкальского региона.
+                            </p>
+                            <h5>Специализация:</h5>
+                            <ul class="list-unstyled">
+                                <li><i class="bi bi-check-circle text-success"></i> Психрофильные микроорганизмы</li>
+                                <li><i class="bi bi-check-circle text-success"></i> Глубоководные формы Байкала</li>
+                                <li><i class="bi bi-check-circle text-success"></i> Эндемичные виды</li>
+                                <li><i class="bi bi-check-circle text-success"></i> Биотехнологические штаммы</li>
+                            </ul>
+                        </div>
+                        <div class="col-md-6">
+                            <h5>Исследовательские направления:</h5>
+                            <ul class="list-unstyled">
+                                <li><i class="bi bi-arrow-right text-primary"></i> Экстремофильная микробиология</li>
+                                <li><i class="bi bi-arrow-right text-primary"></i> Биотехнология и фармацевтика</li>
+                                <li><i class="bi bi-arrow-right text-primary"></i> Экологический мониторинг</li>
+                                <li><i class="bi bi-arrow-right text-primary"></i> Геномика и филогения</li>
+                                <li><i class="bi bi-arrow-right text-primary"></i> Астробиологические модели</li>
+                            </ul>
+                            <div class="mt-4">
+                                <a href="/admin/" class="btn btn-primary">
+                                    <i class="bi bi-gear"></i> Административная панель
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %} 

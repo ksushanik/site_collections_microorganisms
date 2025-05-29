@@ -1,0 +1,49 @@
+{% extends "base.html" %}
+
+{% block title %}Штаммы - СИФИБР СО РАН{% endblock %}
+
+{% block content %}
+<div class="container">
+    <h1 class="mb-4">
+        <i class="bi bi-bacteria text-success"></i>
+        Штаммы микроорганизмов
+    </h1>
+    
+    <div class="alert alert-info">
+        <i class="bi bi-info-circle"></i>
+        Найдено <strong>{{ strains|length }}</strong> штаммов
+    </div>
+    
+    <div class="table-responsive">
+        <table class="table table-hover">
+            <thead class="table-light">
+                <tr>
+                    <th>Штамм</th>
+                    <th>Научное название</th>
+                    <th>Коллекция</th>
+                    <th>Тип организма</th>
+                    <th>Среда обитания</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for strain in strains %}
+                <tr>
+                    <td><strong>{{ strain.full_name }}</strong></td>
+                    <td><em>{{ strain.scientific_name }}</em></td>
+                    <td><span class="badge bg-secondary">{{ strain.collection.code }}</span></td>
+                    <td>{{ strain.get_organism_type_display }}</td>
+                    <td>{{ strain.get_habitat_type_display }}</td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="5" class="text-center text-muted">
+                        <i class="bi bi-inbox fs-1 d-block mb-2"></i>
+                        Штаммы не найдены
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %} 
