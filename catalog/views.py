@@ -497,6 +497,133 @@ class StrainViewSet(viewsets.ReadOnlyModelViewSet):
         serializer = self.get_serializer(queryset, many=True)
         return Response(serializer.data)
 
+    @action(detail=False, methods=['get'])
+    def export_csv(self, request):
+        """Экспорт штаммов в CSV формате"""
+        response = HttpResponse(content_type='text/csv')
+        response['Content-Disposition'] = 'attachment; filename="strains_export.csv"'
+        
+        writer = csv.writer(response)
+        writer.writerow([
+            'Штамм', 'Научное название', 'Род', 'Вид', 'Коллекция',
+            'Тип организма', 'Среда обитания', 'Широта', 'Долгота',
+            'Температура (°C)', 'pH', 'Психрофил', 'Термофил', 'Галофил',
+            'Источник выделения', 'Дата выделения', 'Особые свойства'
+        ])
+        
+        # Применяем те же фильтры что и в основном списке
+        queryset = self.filter_queryset(self.get_queryset())
+        
+        for strain in queryset:
+            writer.writerow([
+                strain.full_name,
+                strain.scientific_name,
+                strain.genus,
+                strain.species,
+                strain.collection.code,
+                strain.get_organism_type_display(),
+                strain.get_habitat_type_display(),
+                strain.latitude or '',
+                strain.longitude or '',
+                strain.optimal_temperature or '',
+                strain.optimal_ph or '',
+                'Да' if strain.is_psychrophile else 'Нет',
+                'Да' if strain.is_thermophile else 'Нет',
+                'Да' if strain.is_halophile else 'Нет',
+                strain.isolation_source or '',
+                strain.isolation_date.strftime('%Y-%m-%d') if strain.isolation_date else '',
+                strain.special_properties or ''
+            ])
+        
+        return response
+
+    @action(detail=False, methods=['get'])
+    def export_fasta(self, request):
+        """Экспорт геномных последовательностей в FASTA формате"""
+        response = HttpResponse(content_type='text/plain')
+        response['Content-Disposition'] = 'attachment; filename="sequences_export.fasta"'
+        
+        # Только штаммы с геномными последовательностями
+        queryset = self.filter_queryset(self.get_queryset()).filter(has_genome_sequence=True)
+        
+        fasta_lines = []
+        for strain in queryset:
+            # Заголовок FASTA
+            header = f">{strain.full_name} {strain.scientific_name}"
+            if strain.latitude and strain.longitude:
+                header += f" [lat={strain.latitude} lon={strain.longitude}]"
+            if strain.optimal_temperature:
+                header += f" [temp={strain.optimal_temperature}C]"
+            header += f" [habitat={strain.habitat_type}]"
+            
+            fasta_lines.append(header)
+            
+            # Последовательность (заглушка для демонстрации)
+            if strain.genome_sequences.exists():
+                sequence = strain.genome_sequences.first()
+                if sequence.sequence_data:
+                    fasta_lines.append(sequence.sequence_data[:100] + "...")
+                else:
+                    # Генерируем заглушку на основе размера генома
+                    seq_length = min(100, (strain.genome_size or 2500000) // 25000)
+                    fasta_lines.append("A" * seq_length + "...")
+            else:
+                fasta_lines.append("ATCGATCGATCGATCG...")  # Заглушка
+            
+            fasta_lines.append("")  # Пустая строка между записями
+        
+        response.write('\n'.join(fasta_lines))
+        return response
+
+    @action(detail=False, methods=['get'])
+    def statistics(self, request):
+        """Статистическая сводка по штаммам"""
+        queryset = self.get_queryset()
+        
+        stats = {
+            'total_strains': queryset.count(),
+            'collections_count': queryset.values('collection').distinct().count(),
+            'extremophiles': {
+                'psychrophiles': queryset.filter(is_psychrophile=True).count(),
+                'thermophiles': queryset.filter(is_thermophile=True).count(),
+                'halophiles': queryset.filter(is_halophile=True).count(),
+                'acidophiles': queryset.filter(is_acidophile=True).count(),
+                'alkaliphiles': queryset.filter(is_alkaliphile=True).count(),
+                'barophiles': queryset.filter(is_barophile=True).count(),
+            },
+            'habitat_distribution': {},
+            'organism_types': {},
+            'biotechnology': {
+                'antibiotic_producers': queryset.filter(produces_antibiotics=True).count(),
+                'enzyme_producers': queryset.filter(produces_enzymes=True).count(),
+                'nitrogen_fixers': queryset.filter(nitrogen_fixation=True).count(),
+                'metabolite_producers': queryset.filter(produces_metabolites=True).count(),
+            },
+            'genomics': {
+                'sequenced': queryset.filter(has_genome_sequence=True).count(),
+                'avg_genome_size': queryset.exclude(genome_size__isnull=True).aggregate(
+                    avg_size=Avg('genome_size')
+                )['avg_size'],
+                'avg_gc_content': queryset.exclude(gc_content__isnull=True).aggregate(
+                    avg_gc=Avg('gc_content')
+                )['avg_gc'],
+            }
+        }
+        
+        # Распределение по средам обитания
+        for choice in Strain.HABITAT_CHOICES:
+            count = queryset.filter(habitat_type=choice[0]).count()
+            if count > 0:
+                stats['habitat_distribution'][choice[1]] = count
+        
+        # Распределение по типам организмов
+        for choice in Strain.ORGANISM_CHOICES:
+            count = queryset.filter(organism_type=choice[0]).count()
+            if count > 0:
+                stats['organism_types'][choice[1]] = count
+        
+        return Response(stats)
+
 
 class GenomeSequenceViewSet(viewsets.ReadOnlyModelViewSet):
     """API для геномных последовательностей"""

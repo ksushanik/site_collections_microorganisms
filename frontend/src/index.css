@@ -1,0 +1,118 @@
+/* Современный CSS Reset */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+* {
+  margin: 0;
+  padding: 0;
+}
+
+html {
+  color-scheme: light dark;
+}
+
+body {
+  font-family: 'Inter', 'Roboto', -apple-system, BlinkMacSystemFont, 'Segoe UI',
+    'Oxygen', 'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
+    sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  line-height: 1.6;
+  min-height: 100dvh;
+  background-color: var(--background);
+  color: var(--text-primary);
+}
+
+code {
+  font-family: 'JetBrains Mono', 'Fira Code', 'Monaco', 'Cascadia Code', 
+    'Ubuntu Mono', monospace;
+  font-variant-ligatures: common-ligatures;
+}
+
+/* CSS Custom Properties - Байкальская тема */
+:root {
+  --baikal-primary: #1565C0;
+  --baikal-secondary: #0D47A1;
+  --baikal-light: #E3F2FD;
+  --baikal-accent: #42A5F5;
+  --baikal-dark: #0D47A1;
+  
+  --text-primary: #212121;
+  --text-secondary: #757575;
+  --background: #fafafa;
+  --surface: #ffffff;
+  --border: #e0e0e0;
+  
+  --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+  --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+  --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+  
+  --radius-sm: 4px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  
+  --transition-fast: 150ms ease;
+  --transition-normal: 300ms ease;
+  --transition-slow: 500ms ease;
+}
+
+/* Темная тема */
+@media (prefers-color-scheme: dark) {
+  :root {
+    --text-primary: #f5f5f5;
+    --text-secondary: #b0b0b0;
+    --background: #121212;
+    --surface: #1e1e1e;
+    --border: #333333;
+    --baikal-light: #1a237e;
+  }
+}
+
+/* Accessibility */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* Focus-visible для лучшей доступности */
+:focus-visible {
+  outline: 2px solid var(--baikal-primary);
+  outline-offset: 2px;
+  border-radius: var(--radius-sm);
+}
+
+/* Утилитарные классы */
+.visually-hidden {
+  position: absolute !important;
+  width: 1px !important;
+  height: 1px !important;
+  padding: 0 !important;
+  margin: -1px !important;
+  overflow: hidden !important;
+  clip: rect(0, 0, 0, 0) !important;
+  white-space: nowrap !important;
+  border: 0 !important;
+}
+
+/* Прогрессивное улучшение для современных браузеров */
+@supports (backdrop-filter: blur(10px)) {
+  .glass-effect {
+    backdrop-filter: blur(10px);
+    background-color: rgb(255 255 255 / 0.8);
+  }
+}
+
+/* Container queries для отзывчивого дизайна */
+@container (max-width: 768px) {
+  .responsive-table {
+    font-size: 0.875rem;
+  }
+} 

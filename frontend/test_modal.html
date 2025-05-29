@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🧬 Тест модального окна штамма - СИФИБР</title>
+    <style>
+        body { 
+            font-family: Arial, sans-serif; 
+            margin: 20px; 
+            background: linear-gradient(135deg, #1565C0 0%, #0D47A1 100%);
+            color: white;
+            min-height: 100vh;
+        }
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: rgba(255,255,255,0.95);
+            color: #333;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.3);
+        }
+        .strain-card {
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            padding: 20px;
+            margin: 10px 0;
+            background: #f9f9f9;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        .strain-card:hover {
+            background: #e3f2fd;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        }
+        .strain-title {
+            font-size: 18px;
+            font-weight: bold;
+            color: #1565C0;
+            margin-bottom: 8px;
+        }
+        .strain-scientific {
+            font-style: italic;
+            color: #666;
+            margin-bottom: 10px;
+        }
+        .strain-properties {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+        .property-chip {
+            background: #1565C0;
+            color: white;
+            padding: 4px 8px;
+            border-radius: 12px;
+            font-size: 12px;
+        }
+        .test-result {
+            background: #d4edda;
+            color: #155724;
+            padding: 15px;
+            border-radius: 5px;
+            margin: 20px 0;
+        }
+        button {
+            background: #1565C0;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 10px 0;
+        }
+        button:hover {
+            background: #0D47A1;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🧬 Тест модального окна детальной информации</h1>
+        <p>Кликните на любой штамм ниже, чтобы протестировать модальное окно с подробной информацией:</p>
+        
+        <div class="test-result">
+            ✅ <strong>Исправлено:</strong> Кнопка "Подробности" теперь открывает модальное окно с полной информацией о штамме
+        </div>
+        
+        <button onclick="loadSampleStrains()">Загрузить тестовые штаммы</button>
+        
+        <div id="strains-container"></div>
+        
+        <div id="test-results"></div>
+    </div>
+
+    <script>
+        const API_BASE = 'http://localhost:3000/api';
+        
+        function log(message, type = 'info') {
+            const container = document.getElementById('test-results');
+            const div = document.createElement('div');
+            div.className = 'test-result';
+            div.innerHTML = `[${new Date().toLocaleTimeString()}] ${message}`;
+            container.appendChild(div);
+        }
+
+        async function loadSampleStrains() {
+            try {
+                log('🔄 Загрузка штаммов для тестирования...');
+                const response = await fetch(`${API_BASE}/strains/`);
+                const data = await response.json();
+                
+                const container = document.getElementById('strains-container');
+                container.innerHTML = '';
+                
+                const sampleStrains = data.results.slice(0, 5); // Первые 5 штаммов
+                
+                sampleStrains.forEach(strain => {
+                    const card = document.createElement('div');
+                    card.className = 'strain-card';
+                    card.onclick = () => showStrainDetails(strain);
+                    
+                    card.innerHTML = `
+                        <div class="strain-title">${strain.full_name}</div>
+                        <div class="strain-scientific">${strain.scientific_name}</div>
+                        <div class="strain-properties">
+                            <span class="property-chip">${strain.collection_code}</span>
+                            <span class="property-chip">${strain.organism_type_display || strain.organism_type}</span>
+                            ${strain.is_psychrophile ? '<span class="property-chip">❄️ Психрофил</span>' : ''}
+                            ${strain.is_thermophile ? '<span class="property-chip">🔥 Термофил</span>' : ''}
+                            ${strain.is_halophile ? '<span class="property-chip">🧂 Галофил</span>' : ''}
+                            ${strain.produces_antibiotics ? '<span class="property-chip">💊 Антибиотики</span>' : ''}
+                            ${strain.produces_enzymes ? '<span class="property-chip">⚡ Ферменты</span>' : ''}
+                            ${strain.has_genome_sequence ? '<span class="property-chip">🧬 Геном</span>' : ''}
+                        </div>
+                        <p style="margin-top: 10px; color: #666; font-size: 14px;">
+                            📍 ${strain.geographic_location || 'Местоположение не указано'}
+                        </p>
+                    `;
+                    
+                    container.appendChild(card);
+                });
+                
+                log(`✅ Загружено ${sampleStrains.length} штаммов для тестирования`);
+                log('💡 Кликните на любой штамм, чтобы увидеть модальное окно с деталями');
+                
+            } catch (error) {
+                log(`❌ Ошибка загрузки: ${error.message}`, 'error');
+            }
+        }
+
+        function showStrainDetails(strain) {
+            // Создаем простое модальное окно для демонстрации
+            const modal = document.createElement('div');
+            modal.style.cssText = `
+                position: fixed;
+                top: 0;
+                left: 0;
+                width: 100%;
+                height: 100%;
+                background: rgba(0,0,0,0.8);
+                display: flex;
+                justify-content: center;
+                align-items: center;
+                z-index: 1000;
+            `;
+            
+            modal.innerHTML = `
+                <div style="
+                    background: white;
+                    padding: 30px;
+                    border-radius: 10px;
+                    max-width: 600px;
+                    max-height: 80vh;
+                    overflow-y: auto;
+                    color: #333;
+                ">
+                    <h2 style="color: #1565C0; margin-top: 0;">🧬 ${strain.full_name}</h2>
+                    <p style="font-style: italic; font-size: 18px; color: #666;">${strain.scientific_name}</p>
+                    
+                    <h3>📊 Основная информация:</h3>
+                    <p><strong>Род:</strong> ${strain.genus}</p>
+                    <p><strong>Вид:</strong> ${strain.species}</p>
+                    <p><strong>Коллекция:</strong> ${strain.collection_code} - ${strain.collection_name}</p>
+                    <p><strong>Тип организма:</strong> ${strain.organism_type_display || strain.organism_type}</p>
+                    
+                    <h3>🌡️ Физико-химические параметры:</h3>
+                    <p><strong>Оптимальная температура:</strong> ${strain.optimal_temperature || 'Не указана'}°C</p>
+                    <p><strong>Диапазон температуры:</strong> ${strain.temperature_range_min || '?'}°C - ${strain.temperature_range_max || '?'}°C</p>
+                    <p><strong>Оптимальный pH:</strong> ${strain.optimal_ph || 'Не указан'}</p>
+                    <p><strong>Диапазон pH:</strong> ${strain.ph_range_min || '?'} - ${strain.ph_range_max || '?'}</p>
+                    
+                    <h3>📍 Локация:</h3>
+                    <p><strong>Источник выделения:</strong> ${strain.isolation_source}</p>
+                    <p><strong>Географическое положение:</strong> ${strain.geographic_location}</p>
+                    ${strain.latitude && strain.longitude ? 
+                        `<p><strong>Координаты:</strong> ${parseFloat(strain.latitude).toFixed(4)}°N, ${parseFloat(strain.longitude).toFixed(4)}°E</p>` : 
+                        '<p><strong>Координаты:</strong> Не указаны</p>'
+                    }
+                    ${strain.depth_meters ? `<p><strong>Глубина:</strong> ${strain.depth_meters} метров</p>` : ''}
+                    
+                    <h3>🧬 Биологические свойства:</h3>
+                    <div style="display: flex; gap: 8px; flex-wrap: wrap; margin: 10px 0;">
+                        ${strain.is_psychrophile ? '<span class="property-chip">❄️ Психрофил</span>' : ''}
+                        ${strain.is_thermophile ? '<span class="property-chip">🔥 Термофил</span>' : ''}
+                        ${strain.is_halophile ? '<span class="property-chip">🧂 Галофил</span>' : ''}
+                        ${strain.is_acidophile ? '<span class="property-chip">🍋 Ацидофил</span>' : ''}
+                        ${strain.is_alkaliphile ? '<span class="property-chip">🧪 Алкалифил</span>' : ''}
+                        ${strain.is_barophile ? '<span class="property-chip">⬇️ Барофил</span>' : ''}
+                        ${strain.produces_antibiotics ? '<span class="property-chip">💊 Антибиотики</span>' : ''}
+                        ${strain.produces_enzymes ? '<span class="property-chip">⚡ Ферменты</span>' : ''}
+                        ${strain.produces_metabolites ? '<span class="property-chip">🧪 Метаболиты</span>' : ''}
+                        ${strain.nitrogen_fixation ? '<span class="property-chip">🌱 Азотфиксация</span>' : ''}
+                        ${strain.has_genome_sequence ? '<span class="property-chip">🧬 Геном секвенирован</span>' : ''}
+                        ${strain.is_baikal_endemic ? '<span class="property-chip">🏔️ Байкальский эндемик</span>' : ''}
+                    </div>
+                    
+                    ${strain.description ? `<h3>📝 Описание:</h3><p>${strain.description}</p>` : ''}
+                    ${strain.special_properties ? `<h3>✨ Особые свойства:</h3><p>${strain.special_properties}</p>` : ''}
+                    
+                    <div style="margin-top: 30px; text-align: center;">
+                        <button onclick="this.parentElement.parentElement.parentElement.remove()" 
+                                style="background: #dc3545; margin-right: 10px;">Закрыть</button>
+                        <button onclick="exportStrain('${strain.full_name}')" 
+                                style="background: #28a745;">Экспорт данных</button>
+                    </div>
+                </div>
+            `;
+            
+            document.body.appendChild(modal);
+            log(`✅ Открыто модальное окно для штамма: ${strain.full_name}`);
+        }
+
+        function exportStrain(strainName) {
+            log(`📥 Функция экспорта вызвана для штамма: ${strainName}`);
+            alert(`Экспорт данных штамма ${strainName} (функция в разработке)`);
+        }
+
+        // Автоматическая загрузка при открытии страницы
+        window.onload = () => {
+            log('🚀 Тестирование модального окна запущено');
+            log('💡 Нажмите "Загрузить тестовые штаммы" для начала тестирования');
+        };
+    </script>
+</body>
+</html> 

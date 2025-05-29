@@ -1,0 +1,69 @@
+{
+  "url": "https://dencr0m8eu.space.minimax.io/",
+  "analysis_date": "2025-05-29 18:54:17",
+  "accessibility": {
+    "status_code": 200,
+    "response_time_ms": 2560.087,
+    "accessible": true,
+    "content_length": 5377,
+    "encoding": "ISO-8859-1"
+  },
+  "ui_elements": {
+    "tables": 0,
+    "forms": 0,
+    "buttons": 0,
+    "inputs": 0,
+    "select": 0,
+    "links": 0,
+    "images": 0,
+    "h1": 0,
+    "h2": 0,
+    "h3": 0
+  },
+  "technical_stack": {
+    "has_jquery": false,
+    "has_bootstrap": false,
+    "has_react": false,
+    "has_angular": false,
+    "has_vue": false,
+    "external_scripts": [],
+    "external_stylesheets": []
+  },
+  "performance": {},
+  "features": {
+    "has_search": false,
+    "has_filters": false,
+    "has_sorting": false,
+    "has_pagination": false,
+    "has_export": false,
+    "data_tables": [],
+    "interactive_elements": []
+  },
+  "content_analysis": {
+    "title": "Created by MiniMax Agent",
+    "description": "Не найдена"
+  },
+  "recommendations": [
+    {
+      "type": "performance",
+      "priority": "high",
+      "issue": "Медленная загрузка страницы",
+      "description": "Время ответа 2560ms превышает рекомендуемые 2000ms",
+      "solution": "Оптимизировать server response time, добавить кэширование"
+    },
+    {
+      "type": "functionality",
+      "priority": "medium",
+      "issue": "Отсутствует экспорт данных",
+      "description": "Не найдены функции экспорта в научных форматах",
+      "solution": "Добавить экспорт в CSV, FASTA, GenBank форматах"
+    },
+    {
+      "type": "technology",
+      "priority": "low",
+      "issue": "Устаревший технологический стек",
+      "description": "Не обнаружены современные UI фреймворки",
+      "solution": "Рассмотреть использование Bootstrap 5+ или React.js для улучшения UI/UX"
+    }
+  ]
+}

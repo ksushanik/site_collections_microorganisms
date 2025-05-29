@@ -8,15 +8,27 @@ from django.urls import path, include
 from django.conf import settings
 from django.conf.urls.static import static
 from django.views.generic import RedirectView
+from . import views
 
 urlpatterns = [
+    # Админ панель Django
     path('admin/', admin.site.urls),
     
-    # Каталог микроорганизмов
-    path('', include('catalog.urls')),
+    # API endpoints
+    path('api/', include('catalog.urls')),
+    path('api/', include('search.urls')),
+    path('api/', include('users.urls')),
     
-    # Перенаправления для совместимости
-    path('catalog/', RedirectView.as_view(url='/', permanent=True)),
+    # Информационная страница о переходе на React (с кнопкой выбора)
+    path('', views.redirect_notice, name='home'),
+    
+    # Прямое перенаправление для каталогов
+    path('catalog/', views.redirect_to_react, name='catalog_redirect'),
+    path('strains/', views.redirect_to_react, name='strains_redirect'),
+    path('collections/', views.redirect_to_react, name='collections_redirect'),
+    
+    # Быстрое перенаправление
+    path('react/', views.redirect_to_react, name='react_redirect'),
 ]
 
 # Обслуживание медиафайлов в режиме разработки

@@ -1,0 +1,541 @@
+{% extends "base.html" %}
+
+{% block title %}Штаммы - СИФИБР СО РАН{% endblock %}
+
+{% block extra_css %}
+<style>
+/* Байкальская тематика - синие тона */
+:root {
+    --baikal-primary: #1565C0;
+    --baikal-secondary: #0D47A1;
+    --baikal-light: #E3F2FD;
+    --baikal-accent: #42A5F5;
+}
+
+.baikal-header {
+    background: linear-gradient(135deg, var(--baikal-primary), var(--baikal-secondary));
+    color: white;
+    padding: 2rem 0;
+    margin-bottom: 2rem;
+}
+
+.strain-card {
+    transition: all 0.3s ease;
+    border-left: 4px solid var(--baikal-accent);
+}
+
+.strain-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 15px rgba(21, 101, 192, 0.2);
+}
+
+.extremophile-badge {
+    background: linear-gradient(45deg, #FF6B6B, #4ECDC4);
+    color: white;
+    border: none;
+}
+
+.filter-section {
+    background: var(--baikal-light);
+    border-radius: 10px;
+    padding: 1.5rem;
+    margin-bottom: 2rem;
+}
+
+.data-table {
+    background: white;
+    border-radius: 10px;
+    overflow: hidden;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+}
+
+.table-header {
+    background: var(--baikal-primary);
+    color: white;
+}
+
+.organism-icon {
+    display: inline-block;
+    width: 24px;
+    height: 24px;
+    background: var(--baikal-accent);
+    border-radius: 50%;
+    text-align: center;
+    line-height: 24px;
+    color: white;
+    font-size: 12px;
+    margin-right: 8px;
+}
+
+.coordinates-link {
+    color: var(--baikal-primary);
+    text-decoration: none;
+    font-size: 0.9em;
+}
+
+.coordinates-link:hover {
+    text-decoration: underline;
+}
+
+/* Прогресс-бары для характеристик */
+.characteristic-bar {
+    height: 8px;
+    border-radius: 4px;
+    background: #e9ecef;
+    position: relative;
+    margin: 5px 0;
+}
+
+.characteristic-fill {
+    height: 100%;
+    border-radius: 4px;
+    transition: width 0.3s ease;
+}
+
+.temp-fill { 
+    background: linear-gradient(90deg, #74b9ff, #0984e3); 
+}
+
+.ph-fill { 
+    background: linear-gradient(90deg, #fd79a8, #e84393); 
+}
+
+.genome-fill { 
+    background: linear-gradient(90deg, #55a3ff, #3742fa); 
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="baikal-header">
+    <div class="container">
+        <div class="row align-items-center">
+            <div class="col-md-8">
+                <h1 class="mb-2">
+                    <i class="bi bi-bacteria fs-1"></i>
+                    Штаммы микроорганизмов озера Байкал
+                </h1>
+                <p class="lead mb-0">
+                    Уникальная коллекция экстремофильных микроорганизмов Байкальского региона
+                </p>
+            </div>
+            <div class="col-md-4 text-end">
+                <div class="d-flex flex-column align-items-end">
+                    <span class="badge bg-light text-dark fs-6 mb-1">
+                        <i class="bi bi-database"></i> {{ strains.count }} штаммов
+                    </span>
+                    <span class="badge bg-light text-dark fs-6">
+                        <i class="bi bi-collection"></i> {{ collections_count }} коллекций
+                    </span>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="container-fluid">
+    <!-- Фильтры и поиск -->
+    <div class="filter-section">
+        <form method="get" id="filterForm" class="row g-3">
+            <div class="col-md-3">
+                <label class="form-label">
+                    <i class="bi bi-search"></i> Поиск
+                </label>
+                <input type="text" class="form-control" name="search" 
+                       placeholder="Название, род, источник..." 
+                       value="{{ request.GET.search }}">
+            </div>
+            
+            <div class="col-md-2">
+                <label class="form-label">
+                    <i class="bi bi-collection"></i> Коллекция
+                </label>
+                <select class="form-select" name="collection">
+                    <option value="">Все коллекции</option>
+                    {% for collection in collections %}
+                    <option value="{{ collection.id }}" 
+                            {% if request.GET.collection == collection.id|stringformat:"s" %}selected{% endif %}>
+                        {{ collection.code }}
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+            
+            <div class="col-md-2">
+                <label class="form-label">
+                    <i class="bi bi-geo-alt"></i> Среда обитания
+                </label>
+                <select class="form-select" name="habitat_type">
+                    <option value="">Все среды</option>
+                    <option value="baikal_surface" {% if request.GET.habitat_type == "baikal_surface" %}selected{% endif %}>
+                        🌊 Поверхность Байкала
+                    </option>
+                    <option value="baikal_deep" {% if request.GET.habitat_type == "baikal_deep" %}selected{% endif %}>
+                        🏔️ Глубины Байкала
+                    </option>
+                    <option value="baikal_bottom" {% if request.GET.habitat_type == "baikal_bottom" %}selected{% endif %}>
+                        ⬇️ Дно Байкала
+                    </option>
+                    <option value="soil" {% if request.GET.habitat_type == "soil" %}selected{% endif %}>
+                        🌱 Почва Прибайкалья
+                    </option>
+                </select>
+            </div>
+            
+            <div class="col-md-2">
+                <label class="form-label">
+                    <i class="bi bi-thermometer"></i> Экстремофилы
+                </label>
+                <select class="form-select" name="extremophiles">
+                    <option value="">Все типы</option>
+                    <option value="psychrophiles" {% if request.GET.extremophiles == "psychrophiles" %}selected{% endif %}>
+                        ❄️ Психрофилы
+                    </option>
+                    <option value="thermophiles" {% if request.GET.extremophiles == "thermophiles" %}selected{% endif %}>
+                        🔥 Термофилы
+                    </option>
+                    <option value="halophiles" {% if request.GET.extremophiles == "halophiles" %}selected{% endif %}>
+                        🧂 Галофилы
+                    </option>
+                </select>
+            </div>
+            
+            <div class="col-md-2">
+                <label class="form-label">
+                    <i class="bi bi-dna"></i> С геномом
+                </label>
+                <select class="form-select" name="has_genome">
+                    <option value="">Все штаммы</option>
+                    <option value="true" {% if request.GET.has_genome == "true" %}selected{% endif %}>
+                        ✅ Секвенированы
+                    </option>
+                    <option value="false" {% if request.GET.has_genome == "false" %}selected{% endif %}>
+                        ❌ Не секвенированы
+                    </option>
+                </select>
+            </div>
+            
+            <div class="col-md-1">
+                <label class="form-label">&nbsp;</label>
+                <button type="submit" class="btn btn-primary w-100">
+                    <i class="bi bi-filter"></i>
+                </button>
+            </div>
+        </form>
+    </div>
+
+    <!-- Статистические карточки -->
+    <div class="row mb-4">
+        <div class="col-md-3">
+            <div class="card border-0 strain-card">
+                <div class="card-body text-center">
+                    <i class="bi bi-snow fs-1 text-info mb-2"></i>
+                    <h5>Психрофилы</h5>
+                    <h3 class="text-primary">{{ psychrophiles_count }}</h3>
+                    <small class="text-muted">холодолюбивые</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card border-0 strain-card">
+                <div class="card-body text-center">
+                    <i class="bi bi-fire fs-1 text-danger mb-2"></i>
+                    <h5>Термофилы</h5>
+                    <h3 class="text-primary">{{ thermophiles_count }}</h3>
+                    <small class="text-muted">теплолюбивые</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card border-0 strain-card">
+                <div class="card-body text-center">
+                    <i class="bi bi-droplet fs-1 text-warning mb-2"></i>
+                    <h5>Галофилы</h5>
+                    <h3 class="text-primary">{{ halophiles_count }}</h3>
+                    <small class="text-muted">солелюбивые</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card border-0 strain-card">
+                <div class="card-body text-center">
+                    <i class="bi bi-cpu fs-1 text-success mb-2"></i>
+                    <h5>Секвенированы</h5>
+                    <h3 class="text-primary">{{ sequenced_count }}</h3>
+                    <small class="text-muted">с геномом</small>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Интерактивная таблица -->
+    <div class="data-table">
+        <div class="table-header p-3">
+            <div class="row align-items-center">
+                <div class="col-md-6">
+                    <h4 class="mb-0">
+                        <i class="bi bi-table"></i>
+                        Детальная информация по штаммам
+                    </h4>
+                </div>
+                <div class="col-md-6 text-end">
+                    <div class="btn-group">
+                        <button class="btn btn-outline-light btn-sm" onclick="exportData('csv')">
+                            <i class="bi bi-file-spreadsheet"></i> CSV
+                        </button>
+                        <button class="btn btn-outline-light btn-sm" onclick="exportData('fasta')">
+                            <i class="bi bi-file-binary"></i> FASTA
+                        </button>
+                        <button class="btn btn-outline-light btn-sm" onclick="showMap()">
+                            <i class="bi bi-map"></i> Карта
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="table-responsive">
+            <table class="table table-hover mb-0" id="strainsTable">
+                <thead class="bg-light">
+                    <tr>
+                        <th style="width: 120px;">
+                            <i class="bi bi-hash"></i> Штамм
+                        </th>
+                        <th>
+                            <i class="bi bi-diagram-3"></i> Научное название
+                        </th>
+                        <th style="width: 120px;">
+                            <i class="bi bi-collection"></i> Коллекция
+                        </th>
+                        <th style="width: 100px;">
+                            <i class="bi bi-thermometer"></i> Темп. °C
+                        </th>
+                        <th style="width: 80px;">
+                            <i class="bi bi-ph"></i> pH
+                        </th>
+                        <th style="width: 120px;">
+                            <i class="bi bi-geo-alt"></i> Локация
+                        </th>
+                        <th style="width: 100px;">
+                            <i class="bi bi-award"></i> Свойства
+                        </th>
+                        <th style="width: 80px;">
+                            <i class="bi bi-dna"></i> Геном
+                        </th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for strain in strains %}
+                    <tr class="strain-row" data-strain-id="{{ strain.id }}">
+                        <td>
+                            <strong class="text-primary">{{ strain.full_name }}</strong>
+                            <br>
+                            <small class="text-muted">#{{ strain.strain_number }}</small>
+                        </td>
+                        <td>
+                            <div class="d-flex align-items-center">
+                                <span class="organism-icon">
+                                    {% if strain.organism_type == 'bacteria' %}🦠{% elif strain.organism_type == 'archaea' %}🌿{% else %}🔬{% endif %}
+                                </span>
+                                <div>
+                                    <em class="fw-bold">{{ strain.scientific_name }}</em>
+                                    <br>
+                                    <small class="text-muted">{{ strain.genus }} {{ strain.species }}</small>
+                                </div>
+                            </div>
+                        </td>
+                        <td>
+                            <span class="badge" style="background: var(--baikal-accent);">
+                                {{ strain.collection.code }}
+                            </span>
+                            <br>
+                            <small class="text-muted">{{ strain.collection.get_collection_type_display }}</small>
+                        </td>
+                        <td>
+                            <div class="characteristic-bar">
+                                <div class="characteristic-fill temp-fill" 
+                                     style="width: {% if strain.optimal_temperature %}{{ strain.optimal_temperature|floatformat:0 }}{% else %}0{% endif %}%"></div>
+                            </div>
+                            <small>{% if strain.optimal_temperature %}{{ strain.optimal_temperature }}°C{% else %}—{% endif %}</small>
+                            {% if strain.is_psychrophile %}
+                                <br><span class="badge bg-info">❄️</span>
+                            {% endif %}
+                            {% if strain.is_thermophile %}
+                                <br><span class="badge bg-danger">🔥</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <div class="characteristic-bar">
+                                <div class="characteristic-fill ph-fill" 
+                                     style="width: {% if strain.optimal_ph %}{% widthratio strain.optimal_ph 14 100 %}{% else %}50{% endif %}%"></div>
+                            </div>
+                            <small>{% if strain.optimal_ph %}{{ strain.optimal_ph }}{% else %}—{% endif %}</small>
+                        </td>
+                        <td>
+                            {% if strain.latitude and strain.longitude %}
+                                <a href="#" class="coordinates-link" 
+                                   onclick="showStrainOnMap({{ strain.latitude }}, {{ strain.longitude }}, '{{ strain.full_name }}')">
+                                    <i class="bi bi-geo-alt"></i>
+                                    {{ strain.latitude|floatformat:3 }},<br>{{ strain.longitude|floatformat:3 }}
+                                </a>
+                                <br>
+                                <small class="text-muted">{{ strain.get_habitat_type_display }}</small>
+                            {% else %}
+                                <span class="text-muted">—</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <div class="d-flex flex-wrap gap-1">
+                                {% if strain.produces_antibiotics %}
+                                    <span class="badge extremophile-badge">💊</span>
+                                {% endif %}
+                                {% if strain.produces_enzymes %}
+                                    <span class="badge bg-success">🧪</span>
+                                {% endif %}
+                                {% if strain.nitrogen_fixation %}
+                                    <span class="badge bg-warning">🌱</span>
+                                {% endif %}
+                                {% if strain.is_halophile %}
+                                    <span class="badge bg-secondary">🧂</span>
+                                {% endif %}
+                            </div>
+                        </td>
+                        <td>
+                            {% if strain.has_genome_sequence %}
+                                <div class="characteristic-bar">
+                                    <div class="characteristic-fill genome-fill" style="width: 85%"></div>
+                                </div>
+                                <a href="#" class="btn btn-sm btn-outline-primary">
+                                    <i class="bi bi-dna"></i>
+                                </a>
+                                <br>
+                                <small class="text-success">
+                                    {% if strain.genome_size %}{{ strain.genome_size|filesizeformat }}{% else %}—{% endif %}
+                                </small>
+                            {% else %}
+                                <span class="text-muted">—</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="8" class="text-center py-5">
+                            <i class="bi bi-inbox fs-1 text-muted d-block mb-3"></i>
+                            <h5 class="text-muted">Штаммы не найдены</h5>
+                            <p class="text-muted">Попробуйте изменить параметры фильтрации</p>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        
+        <!-- Пагинация -->
+        {% if is_paginated %}
+        <div class="p-3 border-top">
+            <nav>
+                <ul class="pagination justify-content-center mb-0">
+                    {% if page_obj.has_previous %}
+                    <li class="page-item">
+                        <a class="page-link" href="?page=1{{ request.GET.urlencode }}">Первая</a>
+                    </li>
+                    <li class="page-item">
+                        <a class="page-link" href="?page={{ page_obj.previous_page_number }}{{ request.GET.urlencode }}">‹</a>
+                    </li>
+                    {% endif %}
+                    
+                    <li class="page-item active">
+                        <span class="page-link">
+                            {{ page_obj.number }} из {{ page_obj.paginator.num_pages }}
+                        </span>
+                    </li>
+                    
+                    {% if page_obj.has_next %}
+                    <li class="page-item">
+                        <a class="page-link" href="?page={{ page_obj.next_page_number }}{{ request.GET.urlencode }}">›</a>
+                    </li>
+                    <li class="page-item">
+                        <a class="page-link" href="?page={{ page_obj.paginator.num_pages }}{{ request.GET.urlencode }}">Последняя</a>
+                    </li>
+                    {% endif %}
+                </ul>
+            </nav>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// Интерактивные функции для работы с данными
+function exportData(format) {
+    const params = new URLSearchParams(window.location.search);
+    params.set('export', format);
+    window.location.href = '{% url "catalog:strain_export" %}?' + params.toString();
+}
+
+function showMap() {
+    const modal = new bootstrap.Modal(document.getElementById('mapModal'));
+    modal.show();
+    initBaikalMap();
+}
+
+function showStrainOnMap(lat, lon, name) {
+    alert(`Показать ${name} на карте Байкала:\nШирота: ${lat}\nДолгота: ${lon}`);
+    // Здесь будет интеграция с картой
+}
+
+// Автоотправка формы при изменении фильтров
+document.addEventListener('DOMContentLoaded', function() {
+    const filterForm = document.getElementById('filterForm');
+    const selects = filterForm.querySelectorAll('select');
+    
+    selects.forEach(select => {
+        select.addEventListener('change', function() {
+            filterForm.submit();
+        });
+    });
+    
+    // Дебаунс для поискового поля
+    const searchInput = filterForm.querySelector('input[name="search"]');
+    let searchTimeout;
+    
+    searchInput.addEventListener('input', function() {
+        clearTimeout(searchTimeout);
+        searchTimeout = setTimeout(() => {
+            filterForm.submit();
+        }, 500);
+    });
+});
+
+// Сортировка таблицы
+function sortTable(column) {
+    // Будет реализована позже
+    console.log('Сортировка по колонке:', column);
+}
+</script>
+
+<!-- Модальное окно для карты -->
+<div class="modal fade" id="mapModal" tabindex="-1">
+    <div class="modal-dialog modal-xl">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    <i class="bi bi-map"></i> Интерактивная карта Байкала
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body" style="height: 600px;">
+                <div id="baikalMap" style="height: 100%; background: #E3F2FD; display: flex; align-items: center; justify-content: center;">
+                    <div class="text-center">
+                        <i class="bi bi-map fs-1 text-primary mb-3 d-block"></i>
+                        <h5>Карта локаций штаммов</h5>
+                        <p class="text-muted">Интеграция с картографическими сервисами<br>будет добавлена в следующих версиях</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %} 

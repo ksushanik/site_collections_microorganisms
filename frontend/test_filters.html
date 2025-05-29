@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Тест фильтрации СИФИБР</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .test-result { padding: 10px; margin: 5px 0; border-radius: 5px; }
+        .success { background-color: #d4edda; color: #155724; }
+        .error { background-color: #f8d7da; color: #721c24; }
+        .info { background-color: #d1ecf1; color: #0c5460; }
+        button { padding: 10px 20px; margin: 5px; cursor: pointer; }
+    </style>
+</head>
+<body>
+    <h1>🧪 Тест системы фильтрации СИФИБР</h1>
+    
+    <button onclick="testBasicLoad()">Тест 1: Базовая загрузка</button>
+    <button onclick="testPsychrophileFilter()">Тест 2: Фильтр психрофилов</button>
+    <button onclick="testTemperatureFilter()">Тест 3: Фильтр температуры</button>
+    <button onclick="testCollectionFilter()">Тест 4: Фильтр коллекций</button>
+    <button onclick="testCombinedFilter()">Тест 5: Комбинированные фильтры</button>
+    
+    <div id="results"></div>
+
+    <script>
+        const API_BASE = 'http://localhost:3000/api';
+        
+        function log(message, type = 'info') {
+            const results = document.getElementById('results');
+            const div = document.createElement('div');
+            div.className = `test-result ${type}`;
+            div.innerHTML = `[${new Date().toLocaleTimeString()}] ${message}`;
+            results.appendChild(div);
+        }
+
+        async function testBasicLoad() {
+            try {
+                log('🔄 Загрузка всех штаммов...');
+                const response = await fetch(`${API_BASE}/strains/`);
+                const data = await response.json();
+                
+                if (data.count > 0) {
+                    log(`✅ Загружено ${data.count} штаммов`, 'success');
+                    log(`📊 Первый штамм: ${data.results[0].full_name} - ${data.results[0].scientific_name}`, 'info');
+                } else {
+                    log('❌ Штаммы не найдены', 'error');
+                }
+            } catch (error) {
+                log(`❌ Ошибка загрузки: ${error.message}`, 'error');
+            }
+        }
+
+        async function testPsychrophileFilter() {
+            try {
+                log('🔄 Тестирование фильтра психрофилов...');
+                const response = await fetch(`${API_BASE}/strains/`);
+                const data = await response.json();
+                
+                const psychrophiles = data.results.filter(strain => strain.is_psychrophile === true);
+                log(`✅ Найдено ${psychrophiles.length} психрофилов из ${data.count}`, 'success');
+                
+                if (psychrophiles.length > 0) {
+                    log(`📊 Пример: ${psychrophiles[0].full_name} (T: ${psychrophiles[0].optimal_temperature}°C)`, 'info');
+                }
+            } catch (error) {
+                log(`❌ Ошибка фильтра психрофилов: ${error.message}`, 'error');
+            }
+        }
+
+        async function testTemperatureFilter() {
+            try {
+                log('🔄 Тестирование фильтра температуры...');
+                const response = await fetch(`${API_BASE}/strains/`);
+                const data = await response.json();
+                
+                const lowTempStrains = data.results.filter(strain => 
+                    strain.optimal_temperature && strain.optimal_temperature <= 10
+                );
+                log(`✅ Найдено ${lowTempStrains.length} штаммов с T ≤ 10°C`, 'success');
+                
+                const highTempStrains = data.results.filter(strain => 
+                    strain.optimal_temperature && strain.optimal_temperature >= 20
+                );
+                log(`✅ Найдено ${highTempStrains.length} штаммов с T ≥ 20°C`, 'success');
+                
+            } catch (error) {
+                log(`❌ Ошибка фильтра температуры: ${error.message}`, 'error');
+            }
+        }
+
+        async function testCollectionFilter() {
+            try {
+                log('🔄 Тестирование фильтра коллекций...');
+                const response = await fetch(`${API_BASE}/strains/`);
+                const data = await response.json();
+                
+                const collections = {};
+                data.results.forEach(strain => {
+                    const code = strain.collection_code;
+                    collections[code] = (collections[code] || 0) + 1;
+                });
+                
+                log(`✅ Найдено ${Object.keys(collections).length} коллекций:`, 'success');
+                Object.entries(collections).forEach(([code, count]) => {
+                    log(`   📁 ${code}: ${count} штаммов`, 'info');
+                });
+                
+            } catch (error) {
+                log(`❌ Ошибка фильтра коллекций: ${error.message}`, 'error');
+            }
+        }
+
+        async function testCombinedFilter() {
+            try {
+                log('🔄 Тестирование комбинированных фильтров...');
+                const response = await fetch(`${API_BASE}/strains/`);
+                const data = await response.json();
+                
+                const combined = data.results.filter(strain => 
+                    strain.is_psychrophile === true && 
+                    strain.produces_antibiotics === true
+                );
+                
+                log(`✅ Психрофилы + продуценты антибиотиков: ${combined.length} штаммов`, 'success');
+                
+                const enzymeProducers = data.results.filter(strain => 
+                    strain.produces_enzymes === true
+                );
+                
+                log(`✅ Продуценты ферментов: ${enzymeProducers.length} штаммов`, 'success');
+                
+                const withGenome = data.results.filter(strain => 
+                    strain.has_genome_sequence === true
+                );
+                
+                log(`✅ С секвенированным геномом: ${withGenome.length} штаммов`, 'success');
+                
+            } catch (error) {
+                log(`❌ Ошибка комбинированных фильтров: ${error.message}`, 'error');
+            }
+        }
+
+        // Автоматический запуск базового теста
+        window.onload = () => {
+            log('🚀 Тестирование системы фильтрации СИФИБР запущено');
+            testBasicLoad();
+        };
+    </script>
+</body>
+</html> 
