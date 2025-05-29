@@ -266,8 +266,8 @@ class GenomeSequenceAdmin(admin.ModelAdmin):
             color, icon = 'red', '🔴'
         
         return format_html(
-            '<span style="color: {};">{} {:.1f}</span>',
-            color, icon, score
+            '<span style="color: {};">{} {}</span>',
+            color, icon, f'{score:.1f}'
         )
     quality_badge.short_description = 'Качество'
     quality_badge.admin_order_field = 'quality_score'

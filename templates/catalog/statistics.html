@@ -1,13 +1,471 @@
 {% extends "base.html" %}
 
-{% block title %}Статистика - СИФИБР СО РАН{% endblock %}
+{% block title %}Статистика коллекций - СИФИБР СО РАН{% endblock %}
+
+{% block extra_css %}
+<style>
+    .stats-card {
+        background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+        border-radius: 15px;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        transition: transform 0.2s, box-shadow 0.2s;
+    }
+    .stats-card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
+    }
+    .chart-container {
+        position: relative;
+        height: 400px;
+        margin: 20px 0;
+    }
+    .metric-card {
+        background: linear-gradient(45deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        border-radius: 10px;
+        padding: 20px;
+        text-align: center;
+        margin-bottom: 20px;
+    }
+    .metric-number {
+        font-size: 2.5rem;
+        font-weight: bold;
+        margin: 0;
+    }
+    .metric-label {
+        font-size: 1.1rem;
+        opacity: 0.9;
+        margin: 5px 0 0 0;
+    }
+    .extremophile-icon {
+        font-size: 2rem;
+        margin-right: 10px;
+    }
+</style>
+{% endblock %}
 
 {% block content %}
-<div class="container">
-    <h1>📊 Статистика коллекций</h1>
-    <div class="alert alert-info">
-        <i class="bi bi-construction"></i>
-        Страница находится в разработке
+<div class="container-fluid">
+    <div class="row mb-4">
+        <div class="col-12">
+            <h1 class="text-center mb-4">
+                <i class="bi bi-graph-up text-primary"></i>
+                Статистика коллекций микроорганизмов СИФИБР СО РАН
+            </h1>
+        </div>
     </div>
+
+    <!-- Общие метрики -->
+    <div class="row mb-5">
+        <div class="col-md-3">
+            <div class="metric-card" style="background: linear-gradient(45deg, #43e97b 0%, #38f9d7 100%);">
+                <p class="metric-number">{{ total_collections }}</p>
+                <p class="metric-label">
+                    <i class="bi bi-collection"></i>
+                    Активных коллекций
+                </p>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="metric-card" style="background: linear-gradient(45deg, #fa709a 0%, #fee140 100%);">
+                <p class="metric-number">{{ total_strains }}</p>
+                <p class="metric-label">
+                    <i class="bi bi-bacteria"></i>
+                    Всего штаммов
+                </p>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="metric-card" style="background: linear-gradient(45deg, #a8edea 0%, #fed6e3 100%); color: #333;">
+                <p class="metric-number">{{ extremophile_stats.psychrophiles|add:extremophile_stats.thermophiles|add:extremophile_stats.halophiles|add:extremophile_stats.acidophiles|add:extremophile_stats.alkaliphiles|add:extremophile_stats.barophiles }}</p>
+                <p class="metric-label">
+                    <i class="bi bi-thermometer-half"></i>
+                    Экстремофилов
+                </p>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="metric-card" style="background: linear-gradient(45deg, #667eea 0%, #764ba2 100%);">
+                <p class="metric-number">{{ genome_stats.sequenced }}</p>
+                <p class="metric-label">
+                    <i class="bi bi-dna"></i>
+                    Секвенированных геномов
+                </p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Графики -->
+    <div class="row">
+        <!-- Экстремофилы -->
+        <div class="col-lg-6 mb-4">
+            <div class="stats-card p-4">
+                <h3 class="text-center mb-4">
+                    <i class="bi bi-thermometer-half text-danger"></i>
+                    Распределение экстремофилов
+                </h3>
+                <div class="chart-container">
+                    <canvas id="extremophileChart"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <!-- Типы организмов -->
+        <div class="col-lg-6 mb-4">
+            <div class="stats-card p-4">
+                <h3 class="text-center mb-4">
+                    <i class="bi bi-pie-chart text-success"></i>
+                    Типы микроорганизмов
+                </h3>
+                <div class="chart-container">
+                    <canvas id="organismChart"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <!-- Среды обитания -->
+        <div class="col-lg-6 mb-4">
+            <div class="stats-card p-4">
+                <h3 class="text-center mb-4">
+                    <i class="bi bi-geo-alt text-info"></i>
+                    Среды обитания
+                </h3>
+                <div class="chart-container">
+                    <canvas id="habitatChart"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <!-- Биотехнологический потенциал -->
+        <div class="col-lg-6 mb-4">
+            <div class="stats-card p-4">
+                <h3 class="text-center mb-4">
+                    <i class="bi bi-gear text-warning"></i>
+                    Биотехнологический потенциал
+                </h3>
+                <div class="chart-container">
+                    <canvas id="biotechChart"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Детальная статистика по экстремофилам -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="stats-card p-4">
+                <h3 class="text-center mb-4">
+                    <i class="bi bi-snow text-primary"></i>
+                    Детальная статистика экстремофилов
+                </h3>
+                <div class="row">
+                    <div class="col-md-2 text-center mb-3">
+                        <div class="extremophile-icon">❄️</div>
+                        <h4 class="text-primary">{{ extremophile_stats.psychrophiles }}</h4>
+                        <p class="mb-0">Психрофилы</p>
+                        <small class="text-muted">Холодолюбивые</small>
+                    </div>
+                    <div class="col-md-2 text-center mb-3">
+                        <div class="extremophile-icon">🔥</div>
+                        <h4 class="text-danger">{{ extremophile_stats.thermophiles }}</h4>
+                        <p class="mb-0">Термофилы</p>
+                        <small class="text-muted">Теплолюбивые</small>
+                    </div>
+                    <div class="col-md-2 text-center mb-3">
+                        <div class="extremophile-icon">🧂</div>
+                        <h4 class="text-warning">{{ extremophile_stats.halophiles }}</h4>
+                        <p class="mb-0">Галофилы</p>
+                        <small class="text-muted">Солелюбивые</small>
+                    </div>
+                    <div class="col-md-2 text-center mb-3">
+                        <div class="extremophile-icon">🍋</div>
+                        <h4 class="text-info">{{ extremophile_stats.acidophiles }}</h4>
+                        <p class="mb-0">Ацидофилы</p>
+                        <small class="text-muted">Кислотолюбивые</small>
+                    </div>
+                    <div class="col-md-2 text-center mb-3">
+                        <div class="extremophile-icon">🧪</div>
+                        <h4 class="text-success">{{ extremophile_stats.alkaliphiles }}</h4>
+                        <p class="mb-0">Алкалифилы</p>
+                        <small class="text-muted">Щелочелюбивые</small>
+                    </div>
+                    <div class="col-md-2 text-center mb-3">
+                        <div class="extremophile-icon">⬇️</div>
+                        <h4 class="text-secondary">{{ extremophile_stats.barophiles }}</h4>
+                        <p class="mb-0">Барофилы</p>
+                        <small class="text-muted">Давлениелюбивые</small>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Геномные данные -->
+    {% if genome_stats.avg_genome_size or genome_stats.avg_gc_content %}
+    <div class="row mb-4">
+        <div class="col-md-6">
+            <div class="stats-card p-4">
+                <h4 class="text-center">
+                    <i class="bi bi-hdd text-primary"></i>
+                    Средний размер генома
+                </h4>
+                <div class="text-center">
+                    <h2 class="text-primary">
+                        {% if genome_stats.avg_genome_size %}
+                            {{ genome_stats.avg_genome_size|floatformat:0 }}
+                        {% else %}
+                            -
+                        {% endif %}
+                    </h2>
+                    <p class="text-muted">нуклеотидов</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-6">
+            <div class="stats-card p-4">
+                <h4 class="text-center">
+                    <i class="bi bi-percent text-success"></i>
+                    Средний GC-состав
+                </h4>
+                <div class="text-center">
+                    <h2 class="text-success">
+                        {% if genome_stats.avg_gc_content %}
+                            {{ genome_stats.avg_gc_content|floatformat:1 }}%
+                        {% else %}
+                            -
+                        {% endif %}
+                    </h2>
+                    <p class="text-muted">гуанин + цитозин</p>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
 </div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script id="chart-data" type="application/json">
+{
+    "extremophile_stats": {
+        "psychrophiles": {{ extremophile_stats.psychrophiles }},
+        "thermophiles": {{ extremophile_stats.thermophiles }},
+        "halophiles": {{ extremophile_stats.halophiles }},
+        "acidophiles": {{ extremophile_stats.acidophiles }},
+        "alkaliphiles": {{ extremophile_stats.alkaliphiles }},
+        "barophiles": {{ extremophile_stats.barophiles }}
+    },
+    "organism_stats": [
+        {% for stat in organism_stats %}
+        {"type": "{{ stat.type }}", "count": {{ stat.count }}}{% if not forloop.last %},{% endif %}
+        {% endfor %}
+    ],
+    "habitat_stats": [
+        {% for stat in habitat_stats %}
+        {% if stat.count > 0 %}
+        {"type": "{{ stat.type }}", "count": {{ stat.count }}}{% if not forloop.last %},{% endif %}
+        {% endif %}
+        {% endfor %}
+    ],
+    "biotech_stats": {
+        "antibiotics": {{ biotech_stats.antibiotics }},
+        "enzymes": {{ biotech_stats.enzymes }},
+        "metabolites": {{ biotech_stats.metabolites }},
+        "nitrogen_fixation": {{ biotech_stats.nitrogen_fixation }}
+    }
+}
+</script>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Получаем данные из JSON скрипта
+    const chartData = JSON.parse(document.getElementById('chart-data').textContent);
+    
+    // Общие настройки цветов
+    const colors = {
+        psychrophiles: '#0066cc',
+        thermophiles: '#ff4444',
+        halophiles: '#ff8800',
+        acidophiles: '#ffcc00',
+        alkaliphiles: '#8800ff',
+        barophiles: '#004488',
+        bacteria: '#28a745',
+        archaea: '#dc3545',
+        fungi: '#ffc107'
+    };
+
+    // График экстремофилов
+    const extremophileCtx = document.getElementById('extremophileChart').getContext('2d');
+    new Chart(extremophileCtx, {
+        type: 'doughnut',
+        data: {
+            labels: ['Психрофилы ❄️', 'Термофилы 🔥', 'Галофилы 🧂', 'Ацидофилы 🍋', 'Алкалифилы 🧪', 'Барофилы ⬇️'],
+            datasets: [{
+                data: [
+                    chartData.extremophile_stats.psychrophiles,
+                    chartData.extremophile_stats.thermophiles,
+                    chartData.extremophile_stats.halophiles,
+                    chartData.extremophile_stats.acidophiles,
+                    chartData.extremophile_stats.alkaliphiles,
+                    chartData.extremophile_stats.barophiles
+                ],
+                backgroundColor: [
+                    colors.psychrophiles,
+                    colors.thermophiles,
+                    colors.halophiles,
+                    colors.acidophiles,
+                    colors.alkaliphiles,
+                    colors.barophiles
+                ],
+                borderWidth: 2,
+                borderColor: '#fff'
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    position: 'bottom',
+                    labels: {
+                        padding: 20,
+                        font: {
+                            size: 12
+                        }
+                    }
+                },
+                tooltip: {
+                    callbacks: {
+                        label: function(context) {
+                            const total = context.dataset.data.reduce((a, b) => a + b, 0);
+                            const percentage = ((context.parsed * 100) / total).toFixed(1);
+                            return context.label + ': ' + context.parsed + ' (' + percentage + '%)';
+                        }
+                    }
+                }
+            }
+        }
+    });
+
+    // График типов организмов
+    const organismCtx = document.getElementById('organismChart').getContext('2d');
+    new Chart(organismCtx, {
+        type: 'pie',
+        data: {
+            labels: chartData.organism_stats.map(stat => stat.type),
+            datasets: [{
+                data: chartData.organism_stats.map(stat => stat.count),
+                backgroundColor: [
+                    '#28a745',
+                    '#dc3545', 
+                    '#ffc107',
+                    '#17a2b8',
+                    '#6f42c1'
+                ],
+                borderWidth: 2,
+                borderColor: '#fff'
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    position: 'bottom',
+                    labels: {
+                        padding: 20
+                    }
+                }
+            }
+        }
+    });
+
+    // График сред обитания
+    const habitatCtx = document.getElementById('habitatChart').getContext('2d');
+    new Chart(habitatCtx, {
+        type: 'bar',
+        data: {
+            labels: chartData.habitat_stats.map(stat => stat.type),
+            datasets: [{
+                label: 'Количество штаммов',
+                data: chartData.habitat_stats.map(stat => stat.count),
+                backgroundColor: 'rgba(23, 162, 184, 0.8)',
+                borderColor: 'rgba(23, 162, 184, 1)',
+                borderWidth: 1
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    display: false
+                }
+            },
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    ticks: {
+                        stepSize: 1
+                    }
+                },
+                x: {
+                    ticks: {
+                        maxRotation: 45
+                    }
+                }
+            }
+        }
+    });
+
+    // График биотехнологического потенциала
+    const biotechCtx = document.getElementById('biotechChart').getContext('2d');
+    new Chart(biotechCtx, {
+        type: 'bar',
+        data: {
+            labels: ['Антибиотики 💊', 'Ферменты ⚗️', 'Метаболиты 🧬', 'Азотфиксация 🌱'],
+            datasets: [{
+                label: 'Количество штаммов',
+                data: [
+                    chartData.biotech_stats.antibiotics,
+                    chartData.biotech_stats.enzymes,
+                    chartData.biotech_stats.metabolites,
+                    chartData.biotech_stats.nitrogen_fixation
+                ],
+                backgroundColor: [
+                    'rgba(40, 167, 69, 0.8)',
+                    'rgba(23, 162, 184, 0.8)',
+                    'rgba(111, 66, 193, 0.8)',
+                    'rgba(220, 53, 69, 0.8)'
+                ],
+                borderColor: [
+                    'rgba(40, 167, 69, 1)',
+                    'rgba(23, 162, 184, 1)',
+                    'rgba(111, 66, 193, 1)',
+                    'rgba(220, 53, 69, 1)'
+                ],
+                borderWidth: 1
+            }]
+        },
+        options: {
+            indexAxis: 'y',
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    display: false
+                }
+            },
+            scales: {
+                x: {
+                    beginAtZero: true,
+                    ticks: {
+                        stepSize: 1
+                    }
+                }
+            }
+        }
+    });
+});
+</script>
 {% endblock %} 

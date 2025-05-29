@@ -1,13 +1,299 @@
 {% extends "base.html" %}
 
-{% block title %}Поиск штаммов - СИФИБР СО РАН{% endblock %}
+{% block title %}Расширенный поиск штаммов - СИФИБР СО РАН{% endblock %}
+
+{% block extra_css %}
+<style>
+    .search-form {
+        background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+        border-radius: 15px;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    }
+    .filter-section {
+        border-left: 4px solid #0d6efd;
+        background: rgba(13, 110, 253, 0.05);
+        border-radius: 8px;
+    }
+    .extremophile-badges .badge {
+        font-size: 0.9em;
+        margin: 2px;
+    }
+    .temperature-range {
+        background: linear-gradient(90deg, #0066cc 0%, #ff6600 100%);
+        height: 4px;
+        border-radius: 2px;
+        margin: 5px 0;
+    }
+    .search-results .strain-card {
+        transition: transform 0.2s, box-shadow 0.2s;
+        border-left: 4px solid transparent;
+    }
+    .search-results .strain-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 6px 20px rgba(0, 0, 0, 0.1);
+        border-left-color: #0d6efd;
+    }
+    .location-badge {
+        background: linear-gradient(45deg, #17a2b8, #20c997);
+        color: white;
+        border: none;
+    }
+</style>
+{% endblock %}
 
 {% block content %}
-<div class="container">
-    <h1><i class="bi bi-search"></i> Расширенный поиск штаммов</h1>
-    <div class="alert alert-info">
-        <i class="bi bi-construction"></i>
-        Страница находится в разработке
+<div class="container-fluid">
+    <div class="row">
+        <!-- Левая панель с фильтрами -->
+        <div class="col-lg-4 col-xl-3">
+            <div class="search-form p-4 mb-4">
+                <h3 class="mb-4">
+                    <i class="bi bi-funnel text-primary"></i>
+                    Фильтры поиска
+                </h3>
+                
+                <form method="get" id="searchForm">
+                    <!-- Базовый поиск -->
+                    <div class="filter-section p-3 mb-4">
+                        <h5 class="text-primary mb-3">
+                            <i class="bi bi-search"></i> Общий поиск
+                        </h5>
+                        <div class="mb-3">
+                            <input type="text" class="form-control" name="q" 
+                                   placeholder="Поиск по названию, роду, виду..." 
+                                   value="{{ request.GET.q }}">
+                        </div>
+                    </div>
+
+                    <!-- Коллекция -->
+                    <div class="filter-section p-3 mb-4">
+                        <h5 class="text-primary mb-3">
+                            <i class="bi bi-collection"></i> Коллекция
+                        </h5>
+                        <select name="collection" class="form-select">
+                            <option value="">Все коллекции</option>
+                            {% for collection in collections %}
+                            <option value="{{ collection.id }}" 
+                                    {% if request.GET.collection == collection.id|stringformat:"s" %}selected{% endif %}>
+                                {{ collection.code }} - {{ collection.name }}
+                            </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <!-- Экстремофильные свойства -->
+                    <div class="filter-section p-3 mb-4">
+                        <h5 class="text-primary mb-3">
+                            <i class="bi bi-thermometer-half"></i> Экстремофилы
+                        </h5>
+                        <div class="row">
+                            <div class="col-6">
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" name="is_psychrophile" 
+                                           {% if request.GET.is_psychrophile %}checked{% endif %}>
+                                    <label class="form-check-label">❄️ Психрофилы</label>
+                                </div>
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" name="is_thermophile" 
+                                           {% if request.GET.is_thermophile %}checked{% endif %}>
+                                    <label class="form-check-label">🔥 Термофилы</label>
+                                </div>
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" name="is_halophile" 
+                                           {% if request.GET.is_halophile %}checked{% endif %}>
+                                    <label class="form-check-label">🧂 Галофилы</label>
+                                </div>
+                            </div>
+                            <div class="col-6">
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" name="is_acidophile" 
+                                           {% if request.GET.is_acidophile %}checked{% endif %}>
+                                    <label class="form-check-label">🍋 Ацидофилы</label>
+                                </div>
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" name="is_alkaliphile" 
+                                           {% if request.GET.is_alkaliphile %}checked{% endif %}>
+                                    <label class="form-check-label">🧪 Алкалифилы</label>
+                                </div>
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" name="is_barophile" 
+                                           {% if request.GET.is_barophile %}checked{% endif %}>
+                                    <label class="form-check-label">⬇️ Барофилы</label>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Биотехнологический потенциал -->
+                    <div class="filter-section p-3 mb-4">
+                        <h5 class="text-primary mb-3">
+                            <i class="bi bi-gear"></i> Биотехнологии
+                        </h5>
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" name="produces_antibiotics" 
+                                   {% if request.GET.produces_antibiotics %}checked{% endif %}>
+                            <label class="form-check-label">💊 Антибиотики</label>
+                        </div>
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" name="produces_enzymes" 
+                                   {% if request.GET.produces_enzymes %}checked{% endif %}>
+                            <label class="form-check-label">⚗️ Ферменты</label>
+                        </div>
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" name="nitrogen_fixation" 
+                                   {% if request.GET.nitrogen_fixation %}checked{% endif %}>
+                            <label class="form-check-label">🌱 Азотфиксация</label>
+                        </div>
+                    </div>
+
+                    <!-- Байкальские критерии -->
+                    <div class="filter-section p-3 mb-4">
+                        <h5 class="text-primary mb-3">
+                            <i class="bi bi-geo"></i> Озеро Байкал
+                        </h5>
+                        <select name="habitat_type" class="form-select mb-3">
+                            <option value="">Любая среда обитания</option>
+                            <option value="baikal_surface" {% if request.GET.habitat_type == "baikal_surface" %}selected{% endif %}>
+                                🌊 Поверхностные воды Байкала
+                            </option>
+                            <option value="baikal_deep" {% if request.GET.habitat_type == "baikal_deep" %}selected{% endif %}>
+                                ⬇️ Глубоководные слои Байкала
+                            </option>
+                            <option value="baikal_bottom" {% if request.GET.habitat_type == "baikal_bottom" %}selected{% endif %}>
+                                🪨 Донные отложения Байкала
+                            </option>
+                            <option value="ice" {% if request.GET.habitat_type == "ice" %}selected{% endif %}>
+                                🧊 Лед Байкала
+                            </option>
+                        </select>
+                    </div>
+
+                    <!-- Кнопки управления -->
+                    <div class="d-grid gap-2">
+                        <button type="submit" class="btn btn-primary btn-lg">
+                            <i class="bi bi-search"></i> Найти штаммы
+                        </button>
+                        <a href="{% url 'catalog:strain_search' %}" class="btn btn-outline-secondary">
+                            <i class="bi bi-arrow-clockwise"></i> Сбросить фильтры
+                        </a>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- Правая панель с результатами -->
+        <div class="col-lg-8 col-xl-9">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h2>
+                    <i class="bi bi-bacteria text-success"></i>
+                    Результаты поиска
+                </h2>
+            </div>
+
+            {% if strains %}
+            <div class="alert alert-success">
+                <i class="bi bi-check-circle"></i>
+                Найдено <strong>{{ strains|length }}</strong> штаммов
+                {% if request.GET.q %} по запросу "<em>{{ request.GET.q }}</em>"{% endif %}
+            </div>
+
+            <div class="search-results" id="searchResults">
+                {% for strain in strains %}
+                <div class="card strain-card mb-3">
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-md-8">
+                                <h5 class="card-title text-primary">
+                                    <a href="{% url 'catalog:strain_detail' strain.id %}" class="text-decoration-none">
+                                        {{ strain.full_name }}
+                                    </a>
+                                </h5>
+                                <p class="card-text">
+                                    <strong>Научное название:</strong> 
+                                    <em>{{ strain.scientific_name }}</em>
+                                </p>
+                                
+                                <div class="mb-2">
+                                    <span class="badge bg-secondary">{{ strain.get_organism_type_display }}</span>
+                                    <span class="badge location-badge">{{ strain.collection.code }}</span>
+                                    {% if strain.is_type_strain %}
+                                    <span class="badge bg-warning">🎯 Типовой штамм</span>
+                                    {% endif %}
+                                </div>
+
+                                <!-- Экстремофильные свойства -->
+                                {% if strain.is_psychrophile or strain.is_thermophile or strain.is_halophile or strain.is_acidophile or strain.is_alkaliphile or strain.is_barophile %}
+                                <div class="extremophile-badges mb-2">
+                                    {% if strain.is_psychrophile %}<span class="badge" style="background-color: #0066cc;">❄️ Психрофил</span>{% endif %}
+                                    {% if strain.is_thermophile %}<span class="badge" style="background-color: #ff4444;">🔥 Термофил</span>{% endif %}
+                                    {% if strain.is_halophile %}<span class="badge" style="background-color: #ff8800;">🧂 Галофил</span>{% endif %}
+                                    {% if strain.is_acidophile %}<span class="badge" style="background-color: #ffcc00;">🍋 Ацидофил</span>{% endif %}
+                                    {% if strain.is_alkaliphile %}<span class="badge" style="background-color: #8800ff;">🧪 Алкалифил</span>{% endif %}
+                                    {% if strain.is_barophile %}<span class="badge" style="background-color: #004488;">⬇️ Барофил</span>{% endif %}
+                                </div>
+                                {% endif %}
+
+                                <!-- Биотехнологический потенциал -->
+                                {% if strain.produces_antibiotics or strain.produces_enzymes or strain.produces_metabolites or strain.nitrogen_fixation %}
+                                <div class="mb-2">
+                                    {% if strain.produces_antibiotics %}<span class="badge bg-success">💊 Антибиотики</span>{% endif %}
+                                    {% if strain.produces_enzymes %}<span class="badge bg-info">⚗️ Ферменты</span>{% endif %}
+                                    {% if strain.produces_metabolites %}<span class="badge bg-primary">🧬 Метаболиты</span>{% endif %}
+                                    {% if strain.nitrogen_fixation %}<span class="badge bg-success">🌱 Азотфиксация</span>{% endif %}
+                                </div>
+                                {% endif %}
+                            </div>
+                            
+                            <div class="col-md-4">
+                                {% if strain.optimal_temperature %}
+                                <p class="mb-1">
+                                    <i class="bi bi-thermometer-half text-primary"></i>
+                                    <strong>Температура:</strong> {{ strain.optimal_temperature }}°C
+                                </p>
+                                {% endif %}
+                                
+                                {% if strain.optimal_ph %}
+                                <p class="mb-1">
+                                    <i class="bi bi-droplet text-info"></i>
+                                    <strong>pH:</strong> {{ strain.optimal_ph }}
+                                </p>
+                                {% endif %}
+                                
+                                {% if strain.depth_meters %}
+                                <p class="mb-1">
+                                    <i class="bi bi-geo-alt text-warning"></i>
+                                    <strong>Глубина:</strong> {{ strain.depth_meters }} м
+                                </p>
+                                {% endif %}
+                                
+                                {% if strain.geographic_location %}
+                                <p class="mb-1">
+                                    <i class="bi bi-pin-map text-danger"></i>
+                                    <strong>Место:</strong> {{ strain.geographic_location|truncatechars:30 }}
+                                </p>
+                                {% endif %}
+                                
+                                {% if strain.has_genome_sequence %}
+                                <p class="mb-1">
+                                    <i class="bi bi-database text-success"></i>
+                                    <strong>Геном секвенирован</strong>
+                                </p>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+            
+            {% else %}
+            <div class="alert alert-info text-center">
+                <i class="bi bi-search"></i>
+                <h4>Штаммы не найдены</h4>
+                <p class="mb-0">Попробуйте изменить критерии поиска или <a href="{% url 'catalog:strain_search' %}">сбросить все фильтры</a></p>
+            </div>
+            {% endif %}
+        </div>
     </div>
 </div>
 {% endblock %} 

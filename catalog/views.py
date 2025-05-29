@@ -233,12 +233,86 @@ class StrainSearchView(TemplateView):
     
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
+        
+        # Базовые данные для формы
         context.update({
             'collections': Collection.objects.filter(is_active=True),
             'organism_types': Strain.ORGANISM_TYPES,
             'habitat_types': Strain.HABITAT_TYPES,
         })
+        
+        # Выполняем поиск если есть параметры
+        strains = None
+        if any(self.request.GET.values()):
+            strains = self.get_search_results()
+        
+        context['strains'] = strains
         return context
+    
+    def get_search_results(self):
+        """Выполняет поиск штаммов по параметрам"""
+        queryset = Strain.objects.filter(is_available=True).select_related('collection')
+        params = self.request.GET
+        
+        # Общий поиск по тексту
+        q = params.get('q', '').strip()
+        if q:
+            queryset = queryset.filter(
+                Q(scientific_name__icontains=q) |
+                Q(genus__icontains=q) |
+                Q(species__icontains=q) |
+                Q(strain_number__icontains=q) |
+                Q(isolation_source__icontains=q) |
+                Q(geographic_location__icontains=q) |
+                Q(alternative_numbers__icontains=q)
+            )
+        
+        # Фильтр по коллекции
+        collection_id = params.get('collection')
+        if collection_id:
+            queryset = queryset.filter(collection_id=collection_id)
+        
+        # Фильтры экстремофилов
+        extremophile_filters = Q()
+        if params.get('is_psychrophile'):
+            extremophile_filters |= Q(is_psychrophile=True)
+        if params.get('is_thermophile'):
+            extremophile_filters |= Q(is_thermophile=True)
+        if params.get('is_halophile'):
+            extremophile_filters |= Q(is_halophile=True)
+        if params.get('is_acidophile'):
+            extremophile_filters |= Q(is_acidophile=True)
+        if params.get('is_alkaliphile'):
+            extremophile_filters |= Q(is_alkaliphile=True)
+        if params.get('is_barophile'):
+            extremophile_filters |= Q(is_barophile=True)
+        
+        if extremophile_filters:
+            queryset = queryset.filter(extremophile_filters)
+        
+        # Фильтры биотехнологий
+        biotech_filters = Q()
+        if params.get('produces_antibiotics'):
+            biotech_filters |= Q(produces_antibiotics=True)
+        if params.get('produces_enzymes'):
+            biotech_filters |= Q(produces_enzymes=True)
+        if params.get('nitrogen_fixation'):
+            biotech_filters |= Q(nitrogen_fixation=True)
+        
+        if biotech_filters:
+            queryset = queryset.filter(biotech_filters)
+        
+        # Фильтр по среде обитания
+        habitat_type = params.get('habitat_type')
+        if habitat_type:
+            queryset = queryset.filter(habitat_type=habitat_type)
+        
+        # Фильтр по типу организма
+        organism_type = params.get('organism_type')
+        if organism_type:
+            queryset = queryset.filter(organism_type=organism_type)
+        
+        return queryset.order_by('collection__code', 'strain_number')[:100]  # Ограничиваем результаты
 
 
 class BaikalExtremophilesView(ListView):
