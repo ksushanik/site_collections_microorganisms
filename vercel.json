@@ -2,26 +2,19 @@
   "version": 2,
   "builds": [
     {
-      "src": "sifibr_collections/wsgi.py",
+      "src": "app.py",
       "use": "@vercel/python",
       "config": { "maxLambdaSize": "15mb", "runtime": "python3.11" }
-    },
-    {
-      "src": "build.sh",
-      "use": "@vercel/static-build",
-      "config": {
-        "distDir": "staticfiles"
-      }
     }
   ],
   "routes": [
     {
       "src": "/static/(.*)",
-      "dest": "/staticfiles/$1"
+      "dest": "/static/$1"
     },
     {
       "src": "/(.*)",
-      "dest": "sifibr_collections/wsgi.py"
+      "dest": "app.py"
     }
   ],
   "env": {
