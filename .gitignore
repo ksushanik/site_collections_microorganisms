@@ -93,109 +93,49 @@ __pycache__/
 local_settings.py
 db.sqlite3
 db.sqlite3-journal
-
-# Если используется SQLite
-*.db
-
-# Django stuff:
 media/
-staticfiles/
 
-# Секретные файлы
+# Virtual environment
+venv/
+env/
+ENV/
+
+# Environment variables
 .env
 .env.local
 .env.production
-.env.staging
 
-# Python
-*.py[cod]
-*$py.class
-*.so
-.Python
-build/
-develop-eggs/
-dist/
-downloads/
-eggs/
-.eggs/
-lib/
-lib64/
-parts/
-sdist/
-var/
-wheels/
-share/python-wheels/
-*.egg-info/
-.installed.cfg
-*.egg
-MANIFEST
-
-# PyInstaller
-*.manifest
-*.spec
-
-# Installer logs
-pip-log.txt
-pip-delete-this-directory.txt
-
-# Unit test / coverage reports
-htmlcov/
-.tox/
-.nox/
-.coverage
-.coverage.*
-.cache
-nosetests.xml
-coverage.xml
-*.cover
-*.py,cover
-.hypothesis/
-.pytest_cache/
-cover/
-
-# Translations
-*.mo
-
-# Jupyter Notebook
-.ipynb_checkpoints
-
-# IPython
-profile_default/
-ipython_config.py
-
-# Environments
-.env
-.venv
-env/
-venv/
-ENV/
-env.bak/
-venv.bak/
+# Static files
+staticfiles/
+static_root/
 
 # IDE
 .vscode/
 .idea/
 *.swp
 *.swo
-*~
 
-# macOS
+# OS
 .DS_Store
-
-# Windows
 Thumbs.db
-ehthumbs.db
-Desktop.ini
 
-# Logs
-logs/
-*.log
-
-# Node.js (если будет фронтенд)
+# Node.js (for frontend)
 node_modules/
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
+
+# Build artifacts
+build/
+dist/
+
+# Testing
+.coverage
+htmlcov/
+.pytest_cache/
+
+# Logs
+logs/*.log
 
 # Temporary files
 tmp/

@@ -1,0 +1,22 @@
+services:
+  - type: web
+    name: sifibr-collections
+    env: python
+    plan: free
+    buildCommand: "./build.sh"
+    startCommand: "gunicorn sifibr_collections.wsgi:application"
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.11.6
+      - key: DJANGO_SETTINGS_MODULE
+        value: sifibr_collections.settings
+      - key: DEBUG
+        value: "False"
+      - key: ALLOWED_HOSTS
+        value: ".onrender.com"
+
+databases:
+  - name: sifibr-db
+    plan: free
+    databaseName: sifibr_collections
+    user: sifibr_user 
