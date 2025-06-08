@@ -85,9 +85,17 @@ WSGI_APPLICATION = 'sifibr_collections.wsgi.application'
 
 # Используем PostgreSQL для production или SQLite для разработки
 if 'DATABASE_URL' in os.environ:
-    # Production (Render) - PostgreSQL
+    # Production (Render/Vercel) - PostgreSQL
     DATABASES = {
         'default': dj_database_url.parse(os.environ.get('DATABASE_URL'))
+    }
+elif 'VERCEL' in os.environ:
+    # Vercel без внешней БД - используем SQLite в памяти
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.sqlite3',
+            'NAME': ':memory:',
+        }
     }
 else:
     # Development - SQLite
@@ -191,34 +199,43 @@ LOGGING = {
             'format': '{levelname} {asctime} {module} {process:d} {thread:d} {message}',
             'style': '{',
         },
+        'simple': {
+            'format': '{levelname} {message}',
+            'style': '{',
+        },
     },
     'handlers': {
-        'file': {
-            'level': 'INFO',
-            'class': 'logging.FileHandler',
-            'filename': BASE_DIR / 'logs' / 'django.log',
-            'formatter': 'verbose',
-        },
         'console': {
-            'level': 'DEBUG',
+            'level': 'INFO',
             'class': 'logging.StreamHandler',
-            'formatter': 'verbose',
+            'formatter': 'simple' if 'VERCEL' in os.environ else 'verbose',
         },
     },
     'root': {
-        'handlers': ['console', 'file'],
+        'handlers': ['console'],
         'level': 'INFO',
     },
     'loggers': {
         'django': {
-            'handlers': ['console', 'file'],
+            'handlers': ['console'],
             'level': 'INFO',
-            'propagate': False,
-        },
-        'catalog': {
-            'handlers': ['console', 'file'],
-            'level': 'DEBUG',
             'propagate': False,
         },
     },
 }
+
+# Добавляем file handler только если не на Vercel
+if 'VERCEL' not in os.environ:
+    LOGGING['handlers']['file'] = {
+        'level': 'INFO',
+        'class': 'logging.FileHandler',
+        'filename': BASE_DIR / 'logs' / 'django.log',
+        'formatter': 'verbose',
+    }
+    LOGGING['root']['handlers'].append('file')
+    LOGGING['loggers']['django']['handlers'].append('file')
+    LOGGING['loggers']['catalog'] = {
+        'handlers': ['console', 'file'],
+        'level': 'INFO',
+        'propagate': False,
+    }
