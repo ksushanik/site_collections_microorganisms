@@ -7,6 +7,12 @@ export default defineConfig({
     react()
   ],
   
+  define: {
+    'process.env.VITE_API_URL': JSON.stringify(
+      process.env.VITE_API_URL || 'http://localhost:8001'
+    ),
+  },
+  
   server: {
     host: '0.0.0.0',
     port: 3000,
@@ -14,17 +20,23 @@ export default defineConfig({
     // Проксируем API запросы к Django
     proxy: {
       '/api': {
-        target: 'http://localhost:8001',
+        target: process.env.NODE_ENV === 'development' 
+          ? (process.env.VITE_API_BASE_URL || 'http://backend:8000')
+          : 'http://localhost:8001',
         changeOrigin: true,
         secure: false,
       },
       '/admin': {
-        target: 'http://localhost:8001',
+        target: process.env.NODE_ENV === 'development' 
+          ? (process.env.VITE_API_BASE_URL || 'http://backend:8000')
+          : 'http://localhost:8001',
         changeOrigin: true,
         secure: false,
       },
       '/static': {
-        target: 'http://localhost:8001',
+        target: process.env.NODE_ENV === 'development' 
+          ? (process.env.VITE_API_BASE_URL || 'http://backend:8000')
+          : 'http://localhost:8001',
         changeOrigin: true,
         secure: false,
       }

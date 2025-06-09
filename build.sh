@@ -1,15 +1,20 @@
-#!/usr/bin/env bash
-# exit on error
-set -o errexit
+#!/bin/bash
 
-# Install dependencies
+# Build script для Render.com
+
+set -o errexit  # Остановить при ошибке
+
+echo "🔧 Установка зависимостей Python..."
+pip install --upgrade pip
 pip install -r requirements.txt
 
-# Create staticfiles directory
-mkdir -p staticfiles
+echo "📦 Сборка статических файлов..."
+python manage.py collectstatic --noinput
 
-# Collect static files
-python manage.py collectstatic --no-input
+echo "🗄️ Выполнение миграций..."
+python manage.py migrate
 
-# Run migrations (for development/testing)
-python manage.py migrate 
+echo "📊 Создание тестовых данных..."
+python manage.py create_test_data
+
+echo "✅ Сборка завершена!" 

@@ -1,22 +1,49 @@
-services:
-  - type: web
-    name: sifibr-collections
-    env: python
-    plan: free
-    buildCommand: "./build.sh"
-    startCommand: "gunicorn --bind 0.0.0.0:$PORT sifibr_collections.wsgi:application"
-    envVars:
-      - key: PYTHON_VERSION
-        value: 3.11.6
-      - key: DJANGO_SETTINGS_MODULE
-        value: sifibr_collections.settings
-      - key: DEBUG
-        value: "False"
-      - key: ALLOWED_HOSTS
-        value: ".onrender.com"
-
 databases:
   - name: sifibr-db
-    plan: free
     databaseName: sifibr_collections
-    user: sifibr_user 
+    user: sifibr
+    plan: free
+
+services:
+  # Django Backend Service
+  - type: web
+    name: sifibr-backend
+    env: python
+    plan: free
+    buildCommand: |
+      pip install --upgrade pip
+      pip install -r requirements.txt
+      python manage.py collectstatic --noinput
+      python manage.py migrate
+    startCommand: |
+      python manage.py create_test_data
+      gunicorn sifibr_collections.wsgi:application --bind 0.0.0.0:$PORT
+    healthCheckPath: /api/health/
+    envVars:
+      - key: DEBUG
+        value: False
+      - key: ALLOWED_HOSTS
+        value: sifibr-backend.onrender.com,localhost,127.0.0.1
+      - key: CORS_ALLOWED_ORIGINS
+        value: https://sifibr-frontend.onrender.com,http://localhost:3000
+      - key: DATABASE_URL
+        fromDatabase:
+          name: sifibr-db
+          property: connectionString
+      - key: SECRET_KEY
+        generateValue: true
+      - key: DJANGO_SETTINGS_MODULE
+        value: sifibr_collections.settings
+
+  # React Frontend Static Site
+  - type: static
+    name: sifibr-frontend
+    buildCommand: |
+      cd frontend
+      npm ci
+      npm run build
+    staticPublishPath: frontend/dist
+    pullRequestPreviewsEnabled: false
+    envVars:
+      - key: VITE_API_URL
+        value: https://sifibr-backend.onrender.com 

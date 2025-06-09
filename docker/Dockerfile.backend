@@ -1,0 +1,80 @@
+# Dockerfile для Django backend
+FROM python:3.11-slim as base
+
+# Метаданные
+LABEL maintainer="SIFIBR SB RAS <sifibr@sifibr.irk.ru>"
+LABEL description="SIFIBR Microorganisms Collections - Django Backend"
+LABEL version="1.0.0"
+
+# Переменные окружения
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    DEBIAN_FRONTEND=noninteractive \
+    PIP_NO_CACHE_DIR=1 \
+    PIP_DISABLE_PIP_VERSION_CHECK=1
+
+# Создаем пользователя для безопасности
+RUN groupadd -r sifibr && useradd -r -g sifibr sifibr
+
+# Устанавливаем системные зависимости
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends \
+        gcc \
+        gettext \
+        postgresql-client \
+        libpq-dev \
+        curl \
+        netcat-traditional \
+    && rm -rf /var/lib/apt/lists/*
+
+# Этап установки зависимостей
+FROM base as dependencies
+
+WORKDIR /tmp
+COPY requirements.txt .
+
+# Создаем виртуальное окружение
+RUN python -m venv /opt/venv
+ENV PATH="/opt/venv/bin:$PATH"
+
+# Обновляем pip и устанавливаем зависимости
+RUN pip install --upgrade pip setuptools wheel \
+    && pip install -r requirements.txt
+
+# Финальный этап
+FROM base as final
+
+# Копируем виртуальное окружение
+COPY --from=dependencies /opt/venv /opt/venv
+ENV PATH="/opt/venv/bin:$PATH"
+
+# Создаем рабочую директорию
+WORKDIR /app
+
+# Копируем код приложения
+COPY --chown=sifibr:sifibr . .
+
+# Создаем необходимые директории
+RUN mkdir -p /app/logs /app/staticfiles /app/media \
+    && chown -R sifibr:sifibr /app
+
+# Устанавливаем права пользователя
+USER sifibr
+
+# Собираем статические файлы
+# Временно отключаем это, будем делать в entrypoint
+# RUN python manage.py collectstatic --noinput
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=30s --start-period=5s --retries=3 \
+    CMD curl -f http://localhost:8000/api/health/ || exit 1
+
+# Открываем порт
+EXPOSE 8000
+
+# Entrypoint скрипт
+COPY --chown=sifibr:sifibr docker/backend/entrypoint.sh /entrypoint.sh
+RUN chmod +x /entrypoint.sh
+
+ENTRYPOINT ["/entrypoint.sh"]
+CMD ["gunicorn", "--bind", "0.0.0.0:8000", "--workers", "4", "--worker-class", "sync", "--timeout", "60", "--keep-alive", "2", "sifibr_collections.wsgi:application"] 

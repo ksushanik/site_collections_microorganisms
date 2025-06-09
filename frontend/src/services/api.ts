@@ -2,12 +2,15 @@ import axios from 'axios';
 import type { ApiResponse, Strain, Collection, Statistics, StrainFilters } from '../types/strain.types';
 
 // Базовая конфигурация API
+const API_BASE_URL = import.meta.env.VITE_API_URL || '/api';
+
 const api = axios.create({
-  baseURL: '/api',
+  baseURL: API_BASE_URL.endsWith('/api') ? API_BASE_URL : `${API_BASE_URL}/api`,
   timeout: 10000,
   headers: {
     'Content-Type': 'application/json',
   },
+  withCredentials: true, // Для работы с CORS
 });
 
 // Добавляем CSRF токен для Django

@@ -1,0 +1,177 @@
+version: '3.8'
+
+services:
+  # PostgreSQL база данных
+  db:
+    image: postgres:15-alpine
+    container_name: sifibr_db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: sifibr_collections
+      POSTGRES_USER: sifibr
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-sifibr_secure_2025}
+      POSTGRES_HOST_AUTH_METHOD: md5
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./postgres/init.sql:/docker-entrypoint-initdb.d/init.sql
+    ports:
+      - "5433:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U sifibr -d sifibr_collections"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+    networks:
+      - sifibr_network
+
+  # Redis для кэширования
+  redis:
+    image: redis:7-alpine
+    container_name: sifibr_redis
+    restart: unless-stopped
+    command: redis-server --appendonly yes --requirepass ${REDIS_PASSWORD:-redis_secure_2025}
+    volumes:
+      - redis_data:/data
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "--raw", "incr", "ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+    networks:
+      - sifibr_network
+
+  # Django backend
+  backend:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.backend
+      target: final
+    container_name: sifibr_backend
+    restart: unless-stopped
+    environment:
+      - DEBUG=${DEBUG:-False}
+      - SECRET_KEY=${SECRET_KEY:-django-insecure-change-in-production}
+      - DATABASE_URL=postgresql://sifibr:${DB_PASSWORD:-sifibr_secure_2025}@db:5432/sifibr_collections
+      - REDIS_URL=redis://:${REDIS_PASSWORD:-redis_secure_2025}@redis:6379/0
+      - ALLOWED_HOSTS=localhost,127.0.0.1,backend,frontend,nginx
+      - CORS_ALLOWED_ORIGINS=http://localhost:3000,http://127.0.0.1:3000,http://localhost:80
+      - DJANGO_SETTINGS_MODULE=sifibr_collections.settings
+    volumes:
+      - ../media:/app/media
+      - static_volume:/app/staticfiles
+    ports:
+      - "8001:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/api/health/"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+    networks:
+      - sifibr_network
+
+  # React frontend (development)
+  frontend-dev:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.frontend
+      target: development
+    container_name: sifibr_frontend_dev
+    restart: unless-stopped
+    environment:
+      - NODE_ENV=development
+      - VITE_API_URL=http://backend:8000
+    volumes:
+      - ../frontend:/app
+      - /app/node_modules
+    ports:
+      - "3000:3000"
+    depends_on:
+      - backend
+    networks:
+      - sifibr_network
+    profiles:
+      - dev
+
+  # React frontend (production)
+  frontend:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.frontend
+      target: production
+    container_name: sifibr_frontend
+    restart: unless-stopped
+    volumes:
+      - static_volume:/app/staticfiles
+    ports:
+      - "80:80"
+    depends_on:
+      - backend
+    networks:
+      - sifibr_network
+    profiles:
+      - prod
+
+  # Nginx reverse proxy (опционально для продакшна)
+  nginx:
+    image: nginx:alpine
+    container_name: sifibr_nginx
+    restart: unless-stopped
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf
+      - ./nginx/sifibr.conf:/etc/nginx/conf.d/sifibr.conf
+      - static_volume:/static
+    ports:
+      - "443:443"
+      - "8080:80"
+    depends_on:
+      - backend
+      - frontend
+    networks:
+      - sifibr_network
+    profiles:
+      - prod
+
+  # Elasticsearch для поиска (будущее развитие)
+  elasticsearch:
+    image: elasticsearch:8.11.0
+    container_name: sifibr_elasticsearch
+    restart: unless-stopped
+    environment:
+      - discovery.type=single-node
+      - xpack.security.enabled=false
+      - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
+    volumes:
+      - elasticsearch_data:/usr/share/elasticsearch/data
+    ports:
+      - "9200:9200"
+    networks:
+      - sifibr_network
+    profiles:
+      - full
+
+# Volumes для persistent storage
+volumes:
+  postgres_data:
+    driver: local
+  redis_data:
+    driver: local
+  elasticsearch_data:
+    driver: local
+  static_volume:
+    driver: local
+
+# Сеть для межсервисного взаимодействия
+networks:
+  sifibr_network:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.30.0.0/16 
