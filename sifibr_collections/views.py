@@ -5,9 +5,7 @@ import os
 
 def redirect_notice(request):
     """Показать информацию о переходе на React интерфейс"""
-    # В production сразу редиректим на React
-    if not settings.DEBUG or os.getenv('RENDER'):
-        return redirect_to_react(request)
+    # Пока убираем автоматический редирект из-за проблем с бесконечной переадресацией
     return render(request, 'redirect_notice.html')
 
 def redirect_to_react(request):

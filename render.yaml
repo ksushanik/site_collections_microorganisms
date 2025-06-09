@@ -5,19 +5,12 @@ databases:
     plan: free
 
 services:
-  # Django Backend Service
+  # Django Backend Service (Docker)
   - type: web
     name: sifibr-backend
-    env: python
+    env: docker
     plan: free
-    buildCommand: |
-      pip install --upgrade pip
-      pip install -r requirements.txt
-      python manage.py collectstatic --noinput --clear
-    preDeployCommand: |
-      python manage.py migrate
-      python manage.py create_test_data
-    # Используем app.py для совместимости с Render auto-detection
+    dockerfilePath: ./Dockerfile
     healthCheckPath: /api/health/
     envVars:
       - key: DEBUG
