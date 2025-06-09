@@ -15,7 +15,7 @@ def redirect_to_react(request):
     # Определяем URL React приложения в зависимости от окружения
     if os.getenv('RENDER'):
         # Production на Render
-        react_url = 'https://sifibr-frontend.onrender.com/'
+        react_url = 'https://site-collections-microorganisms.onrender.com/'
     else:
         # Local development  
         react_url = 'http://localhost:3000/'

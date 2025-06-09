@@ -2,7 +2,12 @@ import axios from 'axios';
 import type { ApiResponse, Strain, Collection, Statistics, StrainFilters } from '../types/strain.types';
 
 // Базовая конфигурация API
-const API_BASE_URL = import.meta.env.VITE_API_URL || '/api';
+const API_BASE_URL = import.meta.env.VITE_API_URL || (
+  // В production используем правильный URL
+  typeof window !== 'undefined' && window.location.hostname.includes('onrender.com')
+    ? 'https://site-collections-microorganisms.onrender.com/api'
+    : '/api'
+);
 
 const api = axios.create({
   baseURL: API_BASE_URL.endsWith('/api') ? API_BASE_URL : `${API_BASE_URL}/api`,
