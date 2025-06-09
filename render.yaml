@@ -14,8 +14,10 @@ services:
       pip install --upgrade pip
       pip install -r requirements.txt
       python manage.py collectstatic --noinput
+    preDeployCommand: |
       python manage.py migrate
-    # Используем Procfile для команды запуска
+      python manage.py create_test_data
+    # Используем app.py для совместимости с Render auto-detection
     healthCheckPath: /api/health/
     envVars:
       - key: DEBUG
