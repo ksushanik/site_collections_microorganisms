@@ -138,8 +138,8 @@ if os.path.exists(static_dir):
 else:
     STATICFILES_DIRS = []
 
-# WhiteNoise настройки для статических файлов (используем обычное хранение)
-# STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
+# WhiteNoise настройки для статических файлов
+STATICFILES_STORAGE = 'whitenoise.storage.CompressedStaticFilesStorage'
 
 # Media files
 MEDIA_URL = '/media/'
