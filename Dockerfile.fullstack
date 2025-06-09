@@ -1,0 +1,165 @@
+# Multi-stage Dockerfile для полного СИФИБР приложения (Backend + Frontend)
+# Stage 1: Build React Frontend
+FROM node:20-alpine AS frontend-build
+
+WORKDIR /app/frontend
+
+# Копируем package files
+COPY frontend/package*.json ./
+RUN npm ci
+
+# Копируем frontend код и собираем
+COPY frontend/ ./
+RUN npm run build
+
+# Stage 2: Build Django Backend
+FROM python:3.11-slim AS backend
+
+# Метаданные
+LABEL maintainer="SIFIBR SB RAS <sifibr@sifibr.irk.ru>"
+LABEL description="SIFIBR Microorganisms Collections - Full Stack"
+
+# Переменные окружения
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    DEBIAN_FRONTEND=noninteractive \
+    PIP_NO_CACHE_DIR=1 \
+    PIP_DISABLE_PIP_VERSION_CHECK=1
+
+# Устанавливаем системные зависимости + nginx
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends \
+        gcc \
+        gettext \
+        postgresql-client \
+        libpq-dev \
+        curl \
+        nginx \
+    && rm -rf /var/lib/apt/lists/*
+
+# Создаем рабочую директорию
+WORKDIR /app
+
+# Копируем requirements и устанавливаем зависимости
+COPY requirements.txt .
+RUN pip install --upgrade pip setuptools wheel \
+    && pip install -r requirements.txt
+
+# Копируем Django код
+COPY . .
+
+# Копируем собранный фронт из первого stage
+COPY --from=frontend-build /app/frontend/dist /app/frontend/dist
+
+# Создаем необходимые директории
+RUN mkdir -p /app/staticfiles /app/media
+
+# Собираем статические файлы Django
+RUN python manage.py collectstatic --noinput --clear
+
+# Настраиваем nginx для статики и фронта
+RUN echo 'server {\n\
+    listen 80;\n\
+    server_name _;\n\
+    \n\
+    # React frontend\n\
+    location / {\n\
+        root /app/frontend/dist;\n\
+        try_files $uri $uri/ /index.html;\n\
+    }\n\
+    \n\
+    # Django API\n\
+    location /api/ {\n\
+        proxy_pass http://127.0.0.1:8000;\n\
+        proxy_set_header Host $host;\n\
+        proxy_set_header X-Real-IP $remote_addr;\n\
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;\n\
+        proxy_set_header X-Forwarded-Proto $scheme;\n\
+    }\n\
+    \n\
+    # Django admin\n\
+    location /admin/ {\n\
+        proxy_pass http://127.0.0.1:8000;\n\
+        proxy_set_header Host $host;\n\
+        proxy_set_header X-Real-IP $remote_addr;\n\
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;\n\
+        proxy_set_header X-Forwarded-Proto $scheme;\n\
+    }\n\
+    \n\
+    # Django static files\n\
+    location /static/ {\n\
+        alias /app/staticfiles/;\n\
+    }\n\
+    \n\
+    # Media files\n\
+    location /media/ {\n\
+        alias /app/media/;\n\
+    }\n\
+}\n' > /etc/nginx/sites-available/default
+
+# Создаем entrypoint скрипт для запуска nginx + Django
+RUN echo '#!/bin/bash\n\
+set -e\n\
+\n\
+echo "🚀 Starting SIFIBR Full Stack on Render..."\n\
+\n\
+# Проверяем DATABASE_URL\n\
+if [ -z "$DATABASE_URL" ]; then\n\
+    echo "❌ ERROR: DATABASE_URL not set!"\n\
+    echo "Please configure DATABASE_URL in Render environment variables"\n\
+    exit 1\n\
+fi\n\
+\n\
+echo "✅ DATABASE_URL configured"\n\
+\n\
+# Выполняем миграции\n\
+echo "📄 Running migrations..."\n\
+python manage.py migrate --noinput\n\
+\n\
+# Создаем тестовые данные\n\
+echo "📊 Creating test data..."\n\
+python manage.py create_test_data || echo "Test data already exists"\n\
+\n\
+# Создаем суперпользователя\n\
+echo "👤 Creating superuser..."\n\
+python manage.py shell -c "\
+from django.contrib.auth.models import User;\
+User.objects.filter(username=\"admin\").exists() or \
+User.objects.create_superuser(\"admin\", \"admin@sifibr.irk.ru\", \"sifibr_admin_2025\")\
+" || echo "Admin user already exists"\n\
+\n\
+echo "✅ Setup complete!"\n\
+\n\
+# Запускаем nginx\n\
+echo "🌐 Starting nginx..."\n\
+nginx\n\
+\n\
+echo "🐍 Starting Django on port 8000..."\n\
+# Запускаем Django в фоне\n\
+exec gunicorn sifibr_collections.wsgi:application \\\n\
+    --bind 127.0.0.1:8000 \\\n\
+    --workers 4 \\\n\
+    --worker-class sync \\\n\
+    --timeout 120 \\\n\
+    --keep-alive 2 \\\n\
+    --access-logfile - \\\n\
+    --error-logfile - &\n\
+\n\
+# Ждем запуска Django\n\
+sleep 3\n\
+\n\
+echo "✅ Full stack ready! Frontend + Backend running"\n\
+\n\
+# Держим контейнер живым\n\
+wait\n\
+' > /entrypoint.sh \
+    && chmod +x /entrypoint.sh
+
+# Health check через nginx
+HEALTHCHECK --interval=30s --timeout=30s --start-period=10s --retries=3 \
+    CMD curl -f http://localhost:80/api/health/ || exit 1
+
+# Expose порт nginx
+EXPOSE 80
+
+ENTRYPOINT ["/entrypoint.sh"] 

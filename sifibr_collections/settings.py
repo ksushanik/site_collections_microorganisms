@@ -90,7 +90,25 @@ WSGI_APPLICATION = 'sifibr_collections.wsgi.application'
 # Database
 # https://docs.djangoproject.com/en/4.2/ref/settings/#databases
 
-DATABASES = {'default': dj_database_url.config(default='sqlite:///db.sqlite3', conn_max_age=600, conn_health_checks=True)}
+# Render.com использует DATABASE_URL для подключения к PostgreSQL
+if 'RENDER' in os.environ:
+    # Production на Render - DATABASE_URL обязательна
+    DATABASES = {
+        'default': dj_database_url.config(
+            conn_max_age=600,
+            conn_health_checks=True,
+            ssl_require=True
+        )
+    }
+else:
+    # Development с возможностью использования DATABASE_URL или SQLite fallback
+    DATABASES = {
+        'default': dj_database_url.config(
+            default='sqlite:///db.sqlite3',
+            conn_max_age=600,
+            conn_health_checks=True
+        )
+    }
 
 
 # Password validation
@@ -230,3 +248,8 @@ CORS_ALLOW_ALL_ORIGINS = DEBUG
 if 'RENDER' in os.environ:
     ALLOWED_HOSTS.append('sifibr-backend.onrender.com')
     ALLOWED_HOSTS.append('.onrender.com')
+
+# Настройки админки Django (будут применены в apps.py)
+ADMIN_SITE_HEADER = 'СИФИБР СО РАН - Коллекции микроорганизмов'
+ADMIN_SITE_TITLE = 'СИФИБР Админ'
+ADMIN_INDEX_TITLE = 'Управление коллекциями микроорганизмов озера Байкал'

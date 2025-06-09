@@ -1,0 +1,153 @@
+{% extends "admin/base.html" %}
+{% load static %}
+
+{% block title %}{% if subtitle %}{{ subtitle }} | {% endif %}{{ title }} | СИФИБР СО РАН{% endblock %}
+
+{% block branding %}
+<div style="display: flex; align-items: center; padding: 10px 20px; background: linear-gradient(135deg, #1565C0 0%, #0D47A1 100%); color: white; margin-bottom: 0;">
+    <div style="font-size: 24px; margin-right: 15px;">🧬</div>
+    <div>
+        <h1 style="margin: 0; font-size: 20px; font-weight: 600;">СИФИБР СО РАН</h1>
+        <p style="margin: 0; font-size: 12px; opacity: 0.9;">Коллекции микроорганизмов озера Байкал</p>
+    </div>
+</div>
+{% endblock %}
+
+{% block extrastyle %}
+{{ block.super }}
+<style>
+    /* Байкальская тема для админки */
+    :root {
+        --primary: #1565C0;
+        --primary-dark: #0D47A1;
+        --accent: #E3F2FD;
+        --success: #4CAF50;
+        --warning: #FF9800;
+        --danger: #f44336;
+    }
+
+    /* Главный заголовок */
+    #header {
+        background: var(--primary) !important;
+        color: white !important;
+    }
+
+    /* Навигационная панель */
+    .module h2, .module caption, .inline-group h2 {
+        background: var(--primary) !important;
+        color: white !important;
+    }
+
+    /* Ссылки в header */
+    #header a:link, #header a:visited {
+        color: white !important;
+    }
+
+    #header a:hover {
+        color: var(--accent) !important;
+    }
+
+    /* Кнопки */
+    .button, input[type=submit], input[type=button], .submit-row input, a.button {
+        background: var(--primary) !important;
+        border: 1px solid var(--primary-dark) !important;
+        color: white !important;
+    }
+
+    .button:hover, input[type=submit]:hover, input[type=button]:hover {
+        background: var(--primary-dark) !important;
+    }
+
+    /* Ссылки */
+    a:link, a:visited {
+        color: var(--primary) !important;
+    }
+
+    a:hover {
+        color: var(--primary-dark) !important;
+    }
+
+    /* Breadcrumbs */
+    .breadcrumbs {
+        background: var(--accent) !important;
+        color: var(--primary-dark) !important;
+    }
+
+    .breadcrumbs a {
+        color: var(--primary) !important;
+    }
+
+    /* Таблицы */
+    .results th {
+        background: var(--primary) !important;
+        color: white !important;
+    }
+
+    .results tr.selected {
+        background-color: rgba(21, 101, 192, 0.1) !important;
+    }
+
+    /* Формы */
+    .form-row .readonly {
+        background: var(--accent) !important;
+    }
+
+    /* Dashboard иконки */
+    .app-catalog .model-strain::before { content: "🦠"; }
+    .app-catalog .model-collection::before { content: "📚"; }
+    .app-catalog .model-genomicsequence::before { content: "🧬"; }
+    .app-catalog .model-publication::before { content: "📄"; }
+    .app-users .model-user::before { content: "👤"; }
+
+    /* Улучшенная навигация */
+    .module {
+        border-radius: 8px !important;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1) !important;
+    }
+
+    /* Статистика на главной */
+    .dashboard .module {
+        background: linear-gradient(145deg, #ffffff 0%, #f8f9fa 100%);
+        border: 1px solid var(--accent);
+    }
+
+    /* Специальные стили для байкальских данных */
+    .field-is_extremophile input:checked + label::after {
+        content: " ❄️";
+    }
+
+    .field-location input[value*="Байкал"]::after {
+        content: " 🌊";
+    }
+
+    /* Добавляем красивую анимацию */
+    .button, .module, .results th {
+        transition: all 0.3s ease !important;
+    }
+
+    .button:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+    }
+
+    /* Footer */
+    #footer {
+        background: var(--primary) !important;
+        color: white !important;
+        text-align: center !important;
+        padding: 20px !important;
+        margin-top: 40px !important;
+    }
+</style>
+{% endblock %}
+
+{% block footer %}
+<div id="footer">
+    <p style="margin: 0;">
+        🧬 <strong>СИФИБР СО РАН</strong> - Сибирский институт физиологии и биохимии растений
+    </p>
+    <p style="margin: 5px 0 0 0; font-size: 12px; opacity: 0.8;">
+        Система управления коллекциями микроорганизмов озера Байкал
+    </p>
+</div>
+{% endblock %} 

@@ -23,16 +23,8 @@ urlpatterns = [
     path('api/', include('search.urls')),
     path('api/', include('users.urls')),
     
-    # Информационная страница о переходе на React (с кнопкой выбора)
-    path('', views.redirect_notice, name='home'),
-    
-    # Прямое перенаправление для каталогов
-    path('catalog/', views.redirect_to_react, name='catalog_redirect'),
-    path('strains/', views.redirect_to_react, name='strains_redirect'),
-    path('collections/', views.redirect_to_react, name='collections_redirect'),
-    
-    # Быстрое перенаправление
-    path('react/', views.redirect_to_react, name='react_redirect'),
+    # API-only backend, главная страница отдает информацию о API
+    path('', views.api_info, name='api_info'),
 ]
 
 # Обслуживание статических файлов (всегда)

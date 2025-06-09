@@ -1,21 +1,40 @@
-from django.shortcuts import render
-from django.http import HttpResponseRedirect
-from django.conf import settings
-import os
+from django.http import JsonResponse
+from django.template.response import TemplateResponse
+from catalog.models import Strain, Collection
 
-def redirect_notice(request):
-    """Показать информацию о переходе на React интерфейс"""
-    # Пока убираем автоматический редирект из-за проблем с бесконечной переадресацией
-    return render(request, 'redirect_notice.html')
-
-def redirect_to_react(request):
-    """Прямое перенаправление на React приложение"""
-    # Определяем URL React приложения в зависимости от окружения
-    if os.getenv('RENDER'):
-        # Production на Render
-        react_url = 'https://site-collections-microorganisms.onrender.com/'
-    else:
-        # Local development  
-        react_url = 'http://localhost:3000/'
+def api_info(request):
+    """
+    Информационная страница API backend.
+    """
+    # Базовая статистика
+    total_strains = Strain.objects.count()
+    total_collections = Collection.objects.count()
     
-    return HttpResponseRedirect(react_url) 
+    if request.META.get('HTTP_ACCEPT', '').startswith('application/json'):
+        # JSON ответ для API клиентов
+        return JsonResponse({
+            'service': 'СИФИБР СО РАН - API Backend',
+            'version': '1.0.0',
+            'description': 'REST API для коллекций микроорганизмов озера Байкал',
+            'frontend_url': 'https://sifibr-frontend.onrender.com',
+            'api_endpoints': {
+                'health': '/api/health/',
+                'strains': '/api/strains/',
+                'collections': '/api/collections/',
+                'admin': '/admin/'
+            },
+            'statistics': {
+                'total_strains': total_strains,
+                'total_collections': total_collections
+            }
+        })
+    
+    # HTML страница для браузеров
+    context = {
+        'total_strains': total_strains,
+        'total_collections': total_collections,
+        'frontend_url': 'https://sifibr-frontend.onrender.com',
+        'title': 'СИФИБР СО РАН - API Backend'
+    }
+    
+    return TemplateResponse(request, 'api_info.html', context) 

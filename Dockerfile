@@ -45,6 +45,15 @@ set -e\n\
 \n\
 echo "🚀 Starting SIFIBR Collections on Render..."\n\
 \n\
+# Проверяем DATABASE_URL\n\
+if [ -z "$DATABASE_URL" ]; then\n\
+    echo "❌ ERROR: DATABASE_URL not set!"\n\
+    echo "Please configure DATABASE_URL in Render environment variables"\n\
+    exit 1\n\
+fi\n\
+\n\
+echo "✅ DATABASE_URL configured"\n\
+\n\
 # Выполняем миграции\n\
 echo "📄 Running migrations..."\n\
 python manage.py migrate --noinput\n\
@@ -61,11 +70,11 @@ User.objects.filter(username=\"admin\").exists() or \
 User.objects.create_superuser(\"admin\", \"admin@sifibr.irk.ru\", \"sifibr_admin_2025\")\
 " || echo "Admin user already exists"\n\
 \n\
-echo "✅ Setup complete! Starting server on port $PORT..."\n\
+echo "✅ Setup complete! Starting server on port ${PORT:-8000}..."\n\
 \n\
-# Запускаем сервер с динамическим портом от Render\n\
+# Запускаем сервер с динамическим портом от Render (fallback 8000)\n\
 exec gunicorn sifibr_collections.wsgi:application \\\n\
-    --bind 0.0.0.0:$PORT \\\n\
+    --bind 0.0.0.0:${PORT:-8000} \\\n\
     --workers 4 \\\n\
     --worker-class sync \\\n\
     --timeout 120 \\\n\
@@ -75,7 +84,7 @@ exec gunicorn sifibr_collections.wsgi:application \\\n\
 ' > /entrypoint.sh \
     && chmod +x /entrypoint.sh
 
-# Health check
+# Health check для Render
 HEALTHCHECK --interval=30s --timeout=30s --start-period=5s --retries=3 \
     CMD curl -f http://localhost:${PORT:-8000}/api/health/ || exit 1
 
