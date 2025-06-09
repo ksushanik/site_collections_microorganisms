@@ -15,16 +15,13 @@ urlpatterns = [
     # Админ панель Django
     path('admin/', admin.site.urls),
     
+    # Health check for monitoring
+    path('api/health/', health_check, name='health_check'),
+    
     # API endpoints
     path('api/', include('catalog.urls')),
-    # Health check for Docker
-    path('api/health/', health_check, name='health_check'),
     path('api/', include('search.urls')),
-    # Health check for Docker
-    path('api/health/', health_check, name='health_check'),
     path('api/', include('users.urls')),
-    # Health check for Docker
-    path('api/health/', health_check, name='health_check'),
     
     # Информационная страница о переходе на React (с кнопкой выбора)
     path('', views.redirect_notice, name='home'),

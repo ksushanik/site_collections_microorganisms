@@ -15,9 +15,7 @@ services:
       pip install -r requirements.txt
       python manage.py collectstatic --noinput
       python manage.py migrate
-    startCommand: |
-      python manage.py create_test_data
-      gunicorn sifibr_collections.wsgi:application --bind 0.0.0.0:$PORT
+    # Используем Procfile для команды запуска
     healthCheckPath: /api/health/
     envVars:
       - key: DEBUG
@@ -34,6 +32,8 @@ services:
         generateValue: true
       - key: DJANGO_SETTINGS_MODULE
         value: sifibr_collections.settings
+      - key: RENDER
+        value: true
 
   # React Frontend Static Site
   - type: static
