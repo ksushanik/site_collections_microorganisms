@@ -125,6 +125,21 @@ curl https://sifibr-backend.onrender.com/api/health/
 
 ## Устранение неполадок
 
+### Проблемы со сборкой
+
+#### ModuleNotFoundError: No module named 'app'
+**Решение**: Убедитесь что есть `Procfile` с правильной командой:
+```
+web: gunicorn sifibr_collections.wsgi:application --bind 0.0.0.0:$PORT
+```
+
+#### ERROR: Cannot install package versions have conflicting dependencies
+**Проблема**: Дублирующие версии пакетов в `requirements.txt`
+**Решение**: Проверьте файл на дубли:
+```bash
+cut -d'=' -f1 requirements.txt | sort | uniq -c | sort -nr
+```
+
 ### Проблемы с базой данных
 ```bash
 # Проверьте логи backend сервиса

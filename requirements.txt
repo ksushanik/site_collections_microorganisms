@@ -18,4 +18,3 @@ dj-database-url==2.1.0
 # Production dependencies
 setuptools==69.0.0
 wheel==0.42.0
-django-filter==23.5
